@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triangle Ship Force</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #0c0c2c, #1d1d4e, #3c3c8c);
+            cursor: none;
+        }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+        .powerup-text { text-shadow: 0 0 10px #ffff00, 0 0 20px #ffff00; }
+        .laser-text { text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff; }
+        .shield-text { text-shadow: 0 0 10px #00aaff, 0 0 20px #00aaff; }
+        .bomb-text { text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00; }
+        .shard-text { color: #d8b4fe; text-shadow: 0 0 10px #a855f7, 0 0 20px #a855f7; }
+        .shop-item { background-color: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); }
+        .shop-item:hover { background-color: rgba(255, 255, 255, 0.2); }
+        .shop-item button:disabled { background-color: #4b5563; cursor: not-allowed; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center h-screen m-0">
+
+    <div id="game-container" class="relative w-full h-full sm:w-[480px] sm:h-[800px] max-w-full max-h-full bg-black rounded-lg shadow-2xl overflow-hidden">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui" class="absolute top-0 left-0 w-full p-4 text-center hidden">
+            <div class="flex justify-between items-center">
+                <button id="pauseButton" class="text-3xl font-bold text-white hover:text-cyan-400 transition-colors">||</button>
+                <h2 class="text-2xl font-bold">Level: <span id="level-indicator">1</span></h2>
+                <h1 id="ship-count-ui" class="text-3xl font-bold tracking-widest">Ships: <span id="shipCount">1</span></h1>
+            </div>
+            <div id="player-health-container" class="hidden w-full max-w-md mx-auto mt-2 bg-gray-700 rounded-full h-6 overflow-hidden border-2 border-cyan-500">
+                <div id="player-health-bar" class="bg-cyan-500 h-full transition-all duration-300" style="width: 100%;"></div>
+            </div>
+            <div id="boss-health-container" class="hidden w-full max-w-md mx-auto mt-2 bg-gray-700 rounded-full h-6 overflow-hidden border-2 border-red-500">
+                <div id="boss-health-bar" class="bg-red-500 h-full transition-all duration-300" style="width: 100%;"></div>
+            </div>
+             <button id="boss-intel-button" class="hidden absolute top-20 right-4 bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1 px-3 rounded-lg text-sm shadow-lg transform hover:scale-105 transition-transform">
+                ✨ Get Boss Intel
+             </button>
+             <p id="powerup-status-ultra" class="hidden text-white text-xl font-bold mt-2" style="text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #0ff;">ULTRA MODE Charged!</p>
+             <p id="powerup-status" class="hidden text-yellow-300 text-xl font-bold mt-2 powerup-text">Fleet Fire Ready! (Press P)</p>
+             <p id="powerup-status-laser" class="hidden text-pink-400 text-xl font-bold mt-2 laser-text">Huge Laser Ready! (Press L)</p>
+             <p id="powerup-status-shield" class="hidden text-cyan-300 text-xl font-bold mt-2 shield-text">Shield Ready for Boss!</p>
+             <p id="powerup-status-bomb" class="hidden text-orange-400 text-xl font-bold mt-2 bomb-text">Bomb Ready! (Press B)</p>
+        </div>
+
+        <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 z-10">
+            <h2 class="text-6xl font-bold text-cyan-400 mb-2">Triangle Ship Force</h2>
+            <button id="authorButton" class="text-sm text-gray-400 hover:text-cyan-400 transition-colors mb-4">Author</button>
+            <div class="flex flex-col space-y-4">
+                <div class="flex space-x-4">
+                    <button id="normalModeButton" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform w-48">
+                        Normal
+                    </button>
+                    <button id="endlessModeButton" class="bg-purple-500 hover:bg-purple-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform w-48">
+                        Endless
+                    </button>
+                </div>
+                <button id="shopButton" class="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform w-full">
+                    Shop
+                </button>
+            </div>
+             <div class="absolute top-4 right-4 text-2xl font-bold shard-text">
+                Shards: <span id="shard-balance-menu">0</span>
+            </div>
+        </div>
+        
+        <div id="shop-screen" class="hidden absolute inset-0 flex-col items-center justify-center p-8 modal z-20">
+            <h2 class="text-5xl font-bold text-yellow-400 mb-6">Power-up Shop</h2>
+            <div class="absolute top-4 right-4 text-2xl font-bold shard-text">
+                Shards: <span id="shard-balance-shop">0</span>
+            </div>
+            <div id="shop-items-container" class="w-full max-w-md space-y-4">
+                <!-- Shop items will be injected here by JS -->
+            </div>
+            <button id="backToMenuButton" class="mt-8 bg-gray-500 hover:bg-gray-400 text-gray-900 font-bold py-2 px-6 rounded-lg text-xl shadow-lg transform hover:scale-105 transition-transform">
+                Back
+            </button>
+        </div>
+        
+        <div id="intel-modal" class="hidden absolute inset-0 flex-col items-center justify-center p-8 modal z-30">
+             <div class="bg-gray-900 border-2 border-indigo-500 p-6 rounded-lg max-w-md text-center">
+                <h2 id="intel-title" class="text-3xl font-bold text-indigo-400 mb-4">Boss Intel</h2>
+                <p id="intel-content" class="text-lg">Generating backstory...</p>
+                <button id="close-intel-button" class="mt-6 bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2 px-6 rounded-lg text-xl">
+                    Close
+                </button>
+            </div>
+        </div>
+        
+        <div id="author-modal" class="hidden absolute inset-0 flex-col items-center justify-center p-8 modal z-30">
+             <div class="bg-gray-900 border-2 border-cyan-500 p-6 rounded-lg max-w-md text-center">
+                <h2 class="text-3xl font-bold text-cyan-400 mb-4">Triangle Ship Force</h2>
+                <p class="text-lg">A game made by Ryan Vo</p>
+                <p class="text-sm text-gray-400 mt-2">ryandtvo@gmail.com</p>
+                <button id="close-author-button" class="mt-6 bg-cyan-500 hover:bg-cyan-400 text-white font-bold py-2 px-6 rounded-lg text-xl">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <div id="pause-modal" class="hidden absolute inset-0 flex-col items-center justify-center p-8 modal z-30">
+             <div class="bg-gray-900 border-2 border-gray-500 p-6 rounded-lg max-w-md text-center">
+                <h2 class="text-5xl font-bold text-white mb-8">Paused</h2>
+                <div class="flex space-x-4">
+                    <button id="resumeButton" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform">
+                        Resume
+                    </button>
+                    <button id="pauseMainMenuButton" class="bg-gray-500 hover:bg-gray-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform">
+                        Main Menu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="level-transition-screen" class="hidden absolute inset-0 flex flex-col items-center justify-center modal z-10">
+            <h2 id="level-complete-title" class="text-6xl font-bold mb-4">Level 1 Complete!</h2>
+            <p id="shard-reward-text" class="text-2xl shard-text font-bold"></p>
+        </div>
+
+        <div id="end-screen" class="hidden absolute inset-0 flex flex-col items-center justify-center modal z-10">
+            <h2 id="end-title" class="text-6xl font-bold mb-4">You Win!</h2>
+            <p id="end-message" class="text-xl mb-8">Your final fleet size was impressive.</p>
+            <div class="flex space-x-4">
+                <button id="restartButton" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform">
+                    Play Again
+                </button>
+                <button id="mainMenuButton" class="bg-gray-500 hover:bg-gray-400 text-gray-900 font-bold py-3 px-8 rounded-lg text-2xl shadow-lg transform hover:scale-105 transition-transform">
+                    Main Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+
+        // UI Elements
+        const uiElements = {
+            ui: document.getElementById('ui'), shipCount: document.getElementById('shipCount'), levelIndicator: document.getElementById('level-indicator'),
+            startScreen: document.getElementById('start-screen'), endScreen: document.getElementById('end-screen'), levelTransitionScreen: document.getElementById('level-transition-screen'),
+            normalModeButton: document.getElementById('normalModeButton'), endlessModeButton: document.getElementById('endlessModeButton'),
+            restartButton: document.getElementById('restartButton'), mainMenuButton: document.getElementById('mainMenuButton'),
+            endTitle: document.getElementById('end-title'), endMessage: document.getElementById('end-message'),
+            levelCompleteTitle: document.getElementById('level-complete-title'), bossHealthContainer: document.getElementById('boss-health-container'),
+            bossHealthBar: document.getElementById('boss-health-bar'), powerupStatus: document.getElementById('powerup-status'),
+            powerupStatusLaser: document.getElementById('powerup-status-laser'), powerupStatusShield: document.getElementById('powerup-status-shield'),
+            powerupStatusBomb: document.getElementById('powerup-status-bomb'),
+            powerupStatusUltra: document.getElementById('powerup-status-ultra'),
+            shopButton: document.getElementById('shopButton'), shopScreen: document.getElementById('shop-screen'),
+            backToMenuButton: document.getElementById('backToMenuButton'), shardBalanceMenu: document.getElementById('shard-balance-menu'),
+            shardBalanceShop: document.getElementById('shard-balance-shop'), shopItemsContainer: document.getElementById('shop-items-container'),
+            shardRewardText: document.getElementById('shard-reward-text'),
+            playerHealthContainer: document.getElementById('player-health-container'), playerHealthBar: document.getElementById('player-health-bar'),
+            shipCountUi: document.getElementById('ship-count-ui'),
+            bossIntelButton: document.getElementById('boss-intel-button'),
+            intelModal: document.getElementById('intel-modal'),
+            intelTitle: document.getElementById('intel-title'),
+            intelContent: document.getElementById('intel-content'),
+            closeIntelButton: document.getElementById('close-intel-button'),
+            authorButton: document.getElementById('authorButton'),
+            authorModal: document.getElementById('author-modal'),
+            closeAuthorButton: document.getElementById('close-author-button'),
+            pauseButton: document.getElementById('pauseButton'),
+            pauseModal: document.getElementById('pause-modal'),
+            resumeButton: document.getElementById('resumeButton'),
+            pauseMainMenuButton: document.getElementById('pauseMainMenuButton'),
+        };
+
+        // Game State & Data
+        let state = {};
+        let playerShards = 0;
+        let preBoughtPowerups = [];
+        const SHOP_DATA = {
+            fleetFire: { name: 'Fleet Fire', cost: 150, description: 'Start with Fleet Fire ready.' },
+            hugeLaser: { name: 'Huge Laser', cost: 250, description: 'Start with Huge Laser ready.' },
+            shield: { name: 'Shield', cost: 100, description: 'Start with a Shield ready.' },
+        };
+
+        function resetState() {
+            if (state.fireIntervalId) clearInterval(state.fireIntervalId);
+            state = {
+                gameMode: 'normal', shipCount: 1, currentLevel: 1, gameActive: false, bossFight: false, gamePaused: false,
+                stars: [], gates: [], powerups: [], projectiles: [], enemyProjectiles: [], enemies: [], bosses: [], bombs: [], proximityBombs: [],
+                playerHealth: 0, maxPlayerHealth: 0, isUpgraded: false,
+                hasFleetFirePowerup: false, isFleetFireActive: false, fleetFireTimer: 0, fleetFireCooldown: 0,
+                hugeLaserCharges: 0, isLaserActive: false, laserTimer: 0, isUltraLaser: false,
+                hasShieldPowerup: false, isShielded: false, shieldTimer: 0, 
+                hasBombPowerup: false,
+                hasUltraMode: false, isUltraModeActive: false,
+                fireIntervalId: null, GATES_PER_LEVEL: 8,
+                reconnectTimer: 0, pendingReconnectParent: null,
+                permanentFireRateUpgrade: false, permanentFleetFireUpgrade: false,
+                permanentDoubleShotUpgrade: false,
+            };
+        }
+
+        const player = { x: 0, y: 0, width: 40, height: 40, targetX: 0, targetY: 0, speed: 0.1 };
+
+        // --- Classes ---
+        class Star { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 2 + 1; this.speed = Math.random() * 2 + 1; } update() { this.y += this.speed; if (this.y > canvas.height) { this.y = 0; this.x = Math.random() * canvas.width; } } draw() { ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2); ctx.fill(); } }
+        class Gate { constructor(y, type = 'normal') { this.width = 100; this.height = 60; this.y = y; this.speed = 2; this.isGood = true; this.operation = ''; this.value = 0; this.x = canvas.width / 2 - this.width/2; this.passed = false; this.type = type; if (type === 'normal') { this.isGood = Math.random() > 0.3; this.operation = this.getOperation(); this.value = this.getValue(); this.x = this.isLeft ? canvas.width / 4 - this.width / 2 : (canvas.width * 3) / 4 - this.width / 2; } } getOperation() { return this.isGood ? (Math.random() > 0.5 ? '+' : 'x') : (Math.random() > 0.5 ? '-' : '÷'); } getValue() { return (this.operation === '+' || this.operation === '-') ? Math.floor(Math.random() * 10) + 1 : Math.floor(Math.random() * 2) + 2; } update() { this.y += this.speed; } draw() { if (this.type === 'upgrade') { ctx.fillStyle = 'rgba(0, 255, 255, 0.3)'; ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(this.x, this.y, this.width, this.height, 10); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'white'; ctx.font = '18px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('UPGRADE', this.x + this.width / 2, this.y + this.height / 2); } else { ctx.fillStyle = this.isGood ? 'rgba(0, 255, 150, 0.3)' : 'rgba(255, 0, 100, 0.3)'; ctx.strokeStyle = this.isGood ? '#00ff96' : '#ff0064'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(this.x, this.y, this.width, this.height, 10); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'white'; ctx.font = '24px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`${this.operation}${this.value}`, this.x + this.width / 2, this.y + this.height / 2); } } }
+        class Projectile { constructor(x, y, type = 'bullet', damage = 10) { this.x = x; this.y = y; this.size = 5; this.speed = 10; this.type = type; this.damage = damage; } update() { this.y -= this.speed; } draw() { if (this.type === 'laser') { ctx.fillStyle = 'rgba(255, 100, 255, 0.8)'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 15; ctx.beginPath(); ctx.rect(this.x - 2, this.y - 20, 4, 20); ctx.fill(); } else { ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; } }
+        class EnemyProjectile { constructor(x, y, speed = 5, size = 6) { this.x = x; this.y = y; this.speed = speed; this.size = size; } update() { this.y += this.speed; } draw() { ctx.fillStyle = '#ff4444'; ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; } }
+        class EnemyPlane { constructor(x, y) { this.x = x; this.y = y; this.width = 20; this.height = 20; this.speed = 4; this.fireCooldown = Math.random() * 60 + 60; } update() { this.y += this.speed; this.fireCooldown--; if (this.fireCooldown <= 0) { state.enemyProjectiles.push(new EnemyProjectile(this.x, this.y + this.height)); this.fireCooldown = 120; } } draw() { ctx.fillStyle = '#ff4444'; ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(this.x, this.y + this.height); ctx.lineTo(this.x - this.width / 2, this.y); ctx.lineTo(this.x + this.width / 2, this.y); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; } }
+        class Bomb { constructor(x, y) { this.x = x; this.y = y; this.size = 15; this.speed = 5; } update() { this.y -= this.speed; } draw() { ctx.fillStyle = '#4a4a4a'; ctx.strokeStyle = '#ff8c00'; ctx.lineWidth = 3; ctx.shadowColor = '#ff8c00'; ctx.shadowBlur = 15; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ff8c00'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size / 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; } }
+        class ProximityBomb { constructor(x, y) { this.x = x; this.y = y; this.size = 12; this.triggerRadius = 60; this.health = 20; this.timer = 300; } update() { this.timer--; const dist = Math.hypot(this.x - player.x, this.y - player.y); if (dist < this.triggerRadius) { this.explode(); } } explode() { for (let i = 0; i < 8; i++) { const angle = (i / 8) * Math.PI * 2; const speed = 4; const p = new EnemyProjectile(this.x, this.y, speed); p.dx = Math.cos(angle) * speed; p.dy = Math.sin(angle) * speed; p.update = function() { this.x += this.dx; this.y += this.dy; }; state.enemyProjectiles.push(p); } this.health = 0; } draw() { ctx.fillStyle = '#9932CC'; ctx.strokeStyle = '#DA70D6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = 'rgba(218, 112, 214, 0.3)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.triggerRadius, 0, Math.PI * 2); ctx.stroke(); } }
+        class PowerUp { constructor(y, type) { this.width = 80; this.height = 80; this.y = y; this.x = canvas.width / 2 - this.width / 2; this.speed = 2; this.passed = false; this.rotation = 0; this.type = type; } update() { this.y += this.speed; this.rotation += 0.05; } draw() { ctx.save(); ctx.translate(this.x + this.width / 2, this.y + this.height / 2); ctx.rotate(this.rotation); const color = this.type === 'fleetFire' ? '#ffff00' : this.type === 'shield' ? '#00aaff' : this.type === 'hugeLaser' ? '#ff00ff' : this.type === 'bomb' ? '#ff8c00' : '#ffffff'; ctx.fillStyle = color + '80'; ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.beginPath(); if (this.type === 'fleetFire') { for (let i = 0; i < 5; i++) { ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * (this.width / 2), -Math.sin((18 + i * 72) * Math.PI / 180) * (this.height / 2)); ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (this.width / 4), -Math.sin((54 + i * 72) * Math.PI / 180) * (this.height / 4)); } } else if (this.type === 'shield' || this.type === 'bomb' || this.type === 'doubleShotUpgrade') { ctx.arc(0, 0, this.width / 2.5, 0, Math.PI * 2); } else if (this.type === 'hugeLaser') { ctx.moveTo(0, -this.height / 2); ctx.lineTo(this.width / 4, 0); ctx.lineTo(0, this.height / 2); ctx.lineTo(-this.width / 4, 0); } else if (this.type === 'ultraMode') { ctx.moveTo(0, -this.height / 2); ctx.lineTo(this.width / 2, this.height / 2); ctx.lineTo(-this.width / 2, this.height / 2); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); ctx.fillStyle = 'black'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const text = this.type === 'fleetFire' ? ['FLEET', 'FIRE'] : this.type === 'shield' ? ['SHIELD', ''] : this.type === 'hugeLaser' ? ['LASER', ''] : this.type === 'bomb' ? ['BOMB', ''] : this.type === 'doubleShotUpgrade' ? ['DOUBLE', 'SHOT'] : ['ULTRA', 'MODE']; ctx.fillText(text[0], this.x + this.width / 2, this.y + this.height / 2 - 8); ctx.fillText(text[1], this.x + this.width / 2, this.y + this.height / 2 + 8); } }
+        class BaseBoss { constructor(x, y, width, height, health, name) { this.x = x; this.y = y; this.width = width; this.height = height; this.maxHealth = health; this.health = health; this.speed = 0.05; this.hitTimer = 0; this.bombHitTimer = 0; this.targetY = 100; this.parent = null; this.name = name; this.fireCooldown = 90; } update() { this.y += (this.targetY - this.y) * this.speed; if (this.hitTimer > 0) this.hitTimer--; if (this.bombHitTimer > 0) this.bombHitTimer--; this.fireCooldown--; if (this.fireCooldown <= 0) { this.shoot(); this.fireCooldown = Math.max(30, 90 - state.currentLevel * 5); } } shoot() { state.enemyProjectiles.push(new EnemyProjectile(this.x + this.width / 2, this.y + this.height)); } draw() { ctx.save(); let shellColor = this.hitTimer > 0 ? '#555' : 'black'; if (this.bombHitTimer > 0) { shellColor = Math.floor(this.bombHitTimer / 6) % 2 === 0 ? '#ff8c00' : 'black'; } ctx.fillStyle = shellColor; ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.shadowColor = 'red'; ctx.shadowBlur = 20; ctx.beginPath(); ctx.moveTo(this.x + this.width / 2, this.y); ctx.lineTo(this.x + this.width, this.y + this.height / 2); ctx.lineTo(this.x + this.width / 2, this.y + this.height); ctx.lineTo(this.x, this.y + this.height / 2); ctx.closePath(); ctx.fill(); ctx.stroke(); const healthPercentage = this.health > 0 ? this.health / this.maxHealth : 0; const redValue = Math.floor(50 + 205 * healthPercentage); const coreColor = `rgb(${redValue}, 0, 0)`; ctx.fillStyle = coreColor; ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 8, 0, Math.PI * 2); ctx.fill(); ctx.restore(); } takeDamage(amount) { this.health -= amount; this.hitTimer = 5; return this.health <= 0; } }
+        class SplitterBoss extends BaseBoss { constructor(x, y, width, height, health) { super(x, y, width, height, health, "The Splitter"); this.splitCooldown = Math.random() * 200 + 200; } update() { super.update(); this.splitCooldown--; if (this.splitCooldown <= 0 && state.reconnectTimer <= 0) this.split(); } split() { const newWidth = this.width * 0.7; const newHeight = this.height * 0.7; const newHealth = Math.floor(this.health * 0.5); const child1 = new BaseBoss(this.x - 20, this.y, newWidth, newHeight, newHealth, "Splitter Fragment"); const child2 = new BaseBoss(this.x + 20, this.y, newWidth, newHeight, newHealth, "Splitter Fragment"); child1.parent = this; child2.parent = this; state.bosses.push(child1, child2); state.reconnectTimer = 180; state.pendingReconnectParent = this; this.health = 0; } }
+        class SpawnerBoss extends BaseBoss { constructor(x, y, width, height, health) { super(x, y, width, height, health, "The Spawner"); this.spawnCooldown = 100; } update() { super.update(); this.spawnCooldown--; if (this.spawnCooldown <= 0) { state.enemies.push(new EnemyPlane(this.x + this.width / 2, this.y + this.height)); this.spawnCooldown = 120; } } }
+        class TeleporterBoss extends BaseBoss { constructor(x, y, width, height, health) { super(x, y, width, height, health, "The Teleporter"); this.teleportCooldown = 150; this.teleportCount = 0; this.originalPos = {x, y}; this.warningPos = null; this.warningTimer = 0; this.isVulnerable = false; this.vulnerabilityTimer = 0; } update() { super.update(); this.teleportCooldown--; if (this.vulnerabilityTimer > 0) this.vulnerabilityTimer--; else this.isVulnerable = false; if (this.warningTimer > 0) this.warningTimer--; if (this.teleportCooldown <= 0 && this.warningTimer <= 0) { if (this.teleportCount < 10) { this.warningPos = { x: Math.random() * (canvas.width - this.width), y: Math.random() * (canvas.height / 2 - this.height) + 50 }; this.warningTimer = 30; this.teleportCooldown = 45; } else { this.warningPos = { x: this.originalPos.x, y: this.originalPos.y }; this.warningTimer = 30; this.teleportCooldown = 300; this.teleportCount = 0; } } if (this.warningTimer === 1) { this.x = this.warningPos.x; this.y = this.warningPos.y; this.teleportCount++; this.warningPos = null; this.isVulnerable = true; this.vulnerabilityTimer = 30; } } draw() { super.draw(); if (this.warningPos) { ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(this.warningPos.x + this.width / 2, this.warningPos.y + this.height / 2, this.width / 2, 0, Math.PI * 2); ctx.stroke(); } if (this.isVulnerable) { ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 4, 0, Math.PI * 2); ctx.fill(); } } }
+        class AttractorBoss extends BaseBoss { constructor(x, y, width, height, health) { super(x, y, width, height, health, "The Attractor"); this.attractSpeed = 1.5; this.fireCooldown = 30; } update() { super.update(); const angle = Math.atan2(player.y - this.y, player.x - this.x); this.x += Math.cos(angle) * this.attractSpeed; this.y += Math.sin(angle) * this.attractSpeed; if (Math.hypot(this.x - player.x, this.y - player.y) < this.width / 2 + player.width / 2) { endGame(false); } } }
+        class KingBoss extends BaseBoss { constructor(x, y, width, height, health) { super(x, y, width, height, health, "THE KING"); this.attackCooldown = 180; this.laserWarningX = null; this.laserWarningTimer = 0; this.fireCooldown = 45; } shoot() { for (let i = 0; i < 5; i++) { const angle = (i - 2) * 0.15; const p = new EnemyProjectile(this.x + this.width / 2, this.y + this.height); const baseAngle = Math.atan2(player.y - this.y, player.x - this.x); p.dx = Math.cos(baseAngle + angle) * p.speed; p.dy = Math.sin(baseAngle + angle) * p.speed; p.update = function() { this.x += this.dx; this.y += this.dy; }; state.enemyProjectiles.push(p); } } update() { super.update(); this.attackCooldown--; if (this.laserWarningTimer > 0) this.laserWarningTimer--; if (this.attackCooldown <= 0 && this.laserWarningTimer <= 0) { const rand = Math.random(); if (rand < 0.4) { this.laserWarningX = Math.random() * canvas.width; this.laserWarningTimer = 60; } else if (rand < 0.7) { for (let i = 0; i < 15; i++) { state.enemies.push(new EnemyPlane(Math.random() * canvas.width, -Math.random() * 100 - 20)); } } else { for (let i = 0; i < 3; i++) { state.proximityBombs.push(new ProximityBomb(Math.random() * canvas.width, Math.random() * canvas.height / 2)); } } this.attackCooldown = 240; } if (this.laserWarningTimer > 1 && this.laserWarningTimer % 5 === 0) { state.enemyProjectiles.push(new EnemyProjectile(this.laserWarningX, 0, 15, 8)); } if (this.laserWarningTimer === 1) { this.laserWarningX = null; } } draw() { ctx.save(); let shellColor = this.hitTimer > 0 ? '#fef08a' : '#eab308'; if (this.bombHitTimer > 0) { shellColor = Math.floor(this.bombHitTimer / 6) % 2 === 0 ? '#ff8c00' : '#eab308'; } ctx.fillStyle = shellColor; ctx.strokeStyle = '#ca8a04'; ctx.lineWidth = 4; ctx.shadowColor = '#facc15'; ctx.shadowBlur = 25; ctx.beginPath(); ctx.moveTo(this.x + this.width / 2, this.y); ctx.lineTo(this.x + this.width, this.y + this.height / 2); ctx.lineTo(this.x + this.width / 2, this.y + this.height); ctx.lineTo(this.x, this.y + this.height / 2); ctx.closePath(); ctx.fill(); ctx.stroke(); const healthPercentage = this.health > 0 ? this.health / this.maxHealth : 0; const purpleValue = Math.floor(100 + 100 * healthPercentage); const coreColor = `rgb(${purpleValue}, 0, ${purpleValue})`; ctx.fillStyle = coreColor; ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 20; ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 8, 0, Math.PI * 2); ctx.fill(); ctx.restore(); if (this.laserWarningTimer > 0) { const alpha = Math.min(1, (60 - this.laserWarningTimer) / 20); ctx.fillStyle = `rgba(255, 0, 0, ${0.1 * alpha})`; ctx.fillRect(this.laserWarningX - 25, 0, 50, canvas.height); } } }
+
+        // --- Game Flow & Setup ---
+        function init(gameMode) {
+            resizeCanvas(); resetState();
+            state.gameMode = gameMode;
+            for (let i = 0; i < 100; i++) state.stars.push(new Star());
+            
+            preBoughtPowerups.forEach(p => {
+                if (p === 'fleetFire') state.hasFleetFirePowerup = true;
+                if (p === 'hugeLaser') state.hugeLaserCharges = 1;
+                if (p === 'shield') state.hasShieldPowerup = true;
+            });
+            preBoughtPowerups = [];
+
+            setupLevel(state.currentLevel, true);
+        }
+
+        function startGame(gameMode) {
+            init(gameMode); state.gameActive = true;
+            uiElements.startScreen.classList.add('hidden');
+            uiElements.endScreen.classList.add('hidden');
+            uiElements.ui.classList.remove('hidden');
+            uiElements.shipCount.textContent = state.shipCount;
+            uiElements.levelIndicator.textContent = state.currentLevel;
+            if (state.hasFleetFirePowerup) uiElements.powerupStatus.classList.remove('hidden');
+            updateLaserStatusUI();
+            if (state.hasShieldPowerup) uiElements.powerupStatusShield.classList.remove('hidden');
+            gameLoop();
+        }
+
+        function setupLevel(level, isFirstSetup = false) {
+            state.bossFight = false;
+            state.gates = []; state.powerups = []; state.projectiles = []; state.enemyProjectiles = []; state.enemies = []; state.bosses = [];
+            if (!isFirstSetup) { player.x = canvas.width / 2; player.targetX = player.x; player.y = canvas.height - 100; player.targetY = player.y; }
+            for (let i = 0; i < state.GATES_PER_LEVEL; i++) {
+                const yPos = -i * 250 - 300;
+                if (state.gameMode === 'normal') {
+                    if (level === 1 && i === 3) { state.powerups.push(new PowerUp(yPos, 'fleetFire')); continue; }
+                    if (level === 2 && i === 5) { state.powerups.push(new PowerUp(yPos, 'hugeLaser')); continue; }
+                    if (level === 3 && i === 4) { state.powerups.push(new PowerUp(yPos, 'bomb')); continue; }
+                    if (level === 4 && i === 4) { state.powerups.push(new PowerUp(yPos, 'ultraMode')); continue; }
+                } else { // Endless mode powerups
+                    if (level % 5 === 0 && i === 3) { state.powerups.push(new PowerUp(yPos, 'doubleShotUpgrade')); continue; }
+                    if (i === 5) {
+                        const rand = Math.random();
+                        if (rand < 0.33) state.powerups.push(new PowerUp(yPos, 'fleetFire'));
+                        else if (rand < 0.66) state.powerups.push(new PowerUp(yPos, 'hugeLaser'));
+                        else state.powerups.push(new PowerUp(yPos, 'shield'));
+                    }
+                }
+                const gate1 = new Gate(yPos, 'normal'); gate1.isLeft = true; gate1.x = canvas.width / 4 - gate1.width / 2;
+                const gate2 = new Gate(yPos, 'normal'); gate2.isLeft = false; gate2.x = (canvas.width * 3) / 4 - gate2.width / 2;
+                state.gates.push(gate1, gate2);
+            }
+        }
+
+        function startBossFight() {
+            state.bossFight = true;
+            if (state.hasUltraMode) {
+                activateUltraMode();
+                state.hasUltraMode = false;
+                uiElements.powerupStatusUltra.classList.add('hidden');
+            }
+            if (state.hasShieldPowerup) {
+                state.isShielded = true; state.shieldTimer = 300; state.hasShieldPowerup = false;
+                uiElements.powerupStatusShield.classList.add('hidden');
+            }
+
+            let bossHealth = Math.max(500, state.shipCount * 15) * (1 + (state.currentLevel -1) * 0.5);
+            if (state.gameMode === 'normal') {
+                switch (state.currentLevel) {
+                    case 1: state.bosses.push(new BaseBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth, "The Guardian")); break;
+                    case 2: state.bosses.push(new SplitterBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth)); break;
+                    case 3: state.bosses.push(new SpawnerBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth)); break;
+                    case 4: state.bosses.push(new AttractorBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth * 0.75)); break;
+                    case 5: state.bosses.push(new TeleporterBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth * 0.75)); break;
+                    case 6: state.bosses.push(new KingBoss(canvas.width / 2 - 100, -200, 200, 200, bossHealth * 1.5)); break;
+                }
+            } else { // Endless mode boss selection
+                const bossTypes = [BaseBoss, SplitterBoss, SpawnerBoss, TeleporterBoss, AttractorBoss];
+                const RandomBoss = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+                state.bosses.push(new RandomBoss(canvas.width / 2 - 75, -200, 150, 150, bossHealth));
+            }
+            
+            uiElements.bossHealthContainer.classList.remove('hidden');
+            uiElements.bossIntelButton.classList.remove('hidden');
+            updateBossHealthBar();
+
+            let baseCooldown = state.permanentFireRateUpgrade ? 150 : 200;
+            if (state.isUltraModeActive) baseCooldown = 75;
+            const fireInterval = Math.max(10, baseCooldown - (state.isUpgraded ? 0 : state.shipCount));
+            state.fireIntervalId = setInterval(() => {
+                if (state.bossFight && state.gameActive && (state.shipCount > 0 || state.isUpgraded)) {
+                    if (state.permanentDoubleShotUpgrade) {
+                        state.projectiles.push(new Projectile(player.x - 10, player.y));
+                        state.projectiles.push(new Projectile(player.x + 10, player.y));
+                    } else {
+                        state.projectiles.push(new Projectile(player.x, player.y));
+                    }
+                }
+                if (!state.isUpgraded && state.shipCount <= 0 && state.projectiles.length === 0 && state.bosses.length > 0) {
+                    endGame(false);
+                }
+            }, fireInterval);
+        }
+
+        function endGame(win) {
+            if (state.fireIntervalId) clearInterval(state.fireIntervalId);
+            state.gameActive = false;
+            uiElements.endScreen.classList.remove('hidden');
+            uiElements.bossIntelButton.classList.add('hidden');
+            if (win) {
+                uiElements.endTitle.textContent = "VICTORY!";
+                uiElements.endMessage.textContent = `You conquered all levels with a final fleet of ${state.shipCount} ships!`;
+            } else {
+                uiElements.endTitle.textContent = "DEFEAT";
+                uiElements.endMessage.textContent = `You were defeated on level ${state.currentLevel}.`;
+            }
+        }
+
+        function advanceLevel() {
+            if (state.fireIntervalId) clearInterval(state.fireIntervalId);
+            uiElements.bossIntelButton.classList.add('hidden');
+            
+            if (state.gameMode === 'normal' && state.currentLevel === 5) {
+                startFinalUpgradeSequence();
+                return;
+            }
+
+            const shardReward = 10 * state.currentLevel;
+            playerShards += shardReward;
+            saveShards();
+
+            if (state.gameMode === 'normal') {
+                if (state.currentLevel === 2) {
+                    state.permanentFireRateUpgrade = true;
+                    state.permanentFleetFireUpgrade = true;
+                }
+                if (state.currentLevel === 4) {
+                    state.permanentDoubleShotUpgrade = true;
+                    state.hugeLaserCharges = 2;
+                    updateLaserStatusUI();
+                }
+            }
+
+            state.currentLevel++;
+            if (state.gameMode === 'normal' && state.currentLevel > 6) { endGame(true); return; }
+            state.gameActive = false;
+            uiElements.levelCompleteTitle.textContent = `Wave ${state.currentLevel - 2} Complete!`;
+            uiElements.shardRewardText.textContent = `+${shardReward} Shards!`;
+            uiElements.levelTransitionScreen.classList.remove('hidden');
+            uiElements.bossHealthContainer.classList.add('hidden');
+            
+            setTimeout(() => {
+                uiElements.levelTransitionScreen.classList.add('hidden');
+                uiElements.levelIndicator.textContent = state.currentLevel;
+                setupLevel(state.currentLevel);
+                state.gameActive = true;
+                gameLoop();
+            }, 2500);
+        }
+        
+        function startFinalUpgradeSequence() {
+            state.bossFight = false;
+            state.gates = [new Gate(-200, 'upgrade')];
+            state.powerups = []; state.projectiles = []; state.enemies = []; state.bosses = [];
+            uiElements.bossHealthContainer.classList.add('hidden');
+        }
+
+        function activateUltraMode() {
+            state.isUltraModeActive = true;
+            state.hasFleetFirePowerup = true;
+            state.hugeLaserCharges = 1;
+            state.hasBombPowerup = true;
+            state.isShielded = true;
+            state.shieldTimer = 300;
+            updateLaserStatusUI();
+            uiElements.powerupStatus.classList.remove('hidden');
+            uiElements.powerupStatusBomb.classList.remove('hidden');
+        }
+
+        // --- Update & Draw ---
+        function update() {
+            if (!state.gameActive || state.gamePaused) return;
+            state.stars.forEach(star => star.update());
+            player.x += (player.targetX - player.x) * player.speed;
+            player.y += (player.targetY - player.y) * player.speed;
+
+            if (state.isShielded) { state.shieldTimer--; if (state.shieldTimer <= 0) state.isShielded = false; }
+            if (state.isLaserActive) { state.laserTimer--; if (state.laserTimer <= 0) state.isLaserActive = false; }
+
+            if (!state.bossFight) {
+                // Gate logic
+                state.gates.forEach((gate, index) => {
+                    gate.update();
+                    if (!gate.passed && player.x > gate.x && player.x < gate.x + gate.width && player.y < gate.y + gate.height && player.y + player.height > gate.y) {
+                        gate.passed = true;
+                        if (gate.type === 'upgrade') {
+                            state.isUpgraded = true;
+                            state.maxPlayerHealth = 500;
+                            state.playerHealth = state.maxPlayerHealth;
+                            state.shipCount = 1;
+                            state.hasFleetFirePowerup = true;
+                            state.hugeLaserCharges = 2;
+                            state.hasBombPowerup = true;
+                            state.isShielded = true;
+                            state.shieldTimer = 300;
+                            uiElements.shipCountUi.innerHTML = 'Health:';
+                            uiElements.playerHealthContainer.classList.remove('hidden');
+                            updatePlayerHealthBar();
+                            updateLaserStatusUI();
+                            uiElements.powerupStatus.classList.remove('hidden');
+                            uiElements.powerupStatusBomb.classList.remove('hidden');
+                            state.currentLevel = 6;
+                            uiElements.levelIndicator.textContent = state.currentLevel;
+                            startBossFight();
+                        } else {
+                            const pairIndex = index % 2 === 0 ? index + 1 : index - 1;
+                            if(state.gates[pairIndex]) state.gates[pairIndex].passed = true;
+                            switch (gate.operation) {
+                                case '+': state.shipCount += gate.value; break;
+                                case '-': state.shipCount -= gate.value; break;
+                                case 'x': state.shipCount = Math.floor(state.shipCount * gate.value); break;
+                                case '÷': state.shipCount = Math.floor(state.shipCount / gate.value); break;
+                            }
+                            if (state.shipCount < 1) state.shipCount = 1;
+                            uiElements.shipCount.textContent = state.shipCount;
+                        }
+                    }
+                });
+                state.gates = state.gates.filter(g => g.y < canvas.height);
+
+                // Powerup logic
+                state.powerups.forEach(p => {
+                    p.update();
+                    if (!p.passed && player.x > p.x && player.x < p.x + p.width && player.y < p.y + p.height && player.y + p.height > p.y) {
+                        p.passed = true;
+                        if (p.type === 'fleetFire') { state.hasFleetFirePowerup = true; uiElements.powerupStatus.classList.remove('hidden'); }
+                        else if (p.type === 'shield') { state.hasShieldPowerup = true; uiElements.powerupStatusShield.classList.remove('hidden'); }
+                        else if (p.type === 'hugeLaser') { state.hugeLaserCharges++; updateLaserStatusUI(); }
+                        else if (p.type === 'bomb') { state.hasBombPowerup = true; uiElements.powerupStatusBomb.classList.remove('hidden'); }
+                        else if (p.type === 'doubleShotUpgrade') { state.permanentDoubleShotUpgrade = true; }
+                        else if (p.type === 'ultraMode') { state.hasUltraMode = true; uiElements.powerupStatusUltra.classList.remove('hidden'); }
+                    }
+                });
+                state.powerups = state.powerups.filter(p => p.y < canvas.height && !p.passed);
+
+                if (state.gates.length === 0 && state.powerups.length === 0) startBossFight();
+            } else {
+                // Boss fight logic
+                state.bosses.forEach(b => b.update());
+                state.enemies.forEach(e => e.update());
+                state.bombs.forEach(b => b.update());
+                state.proximityBombs.forEach(pb => pb.update());
+                state.enemyProjectiles.forEach(p => p.update());
+
+                // Reconnect logic
+                if (state.reconnectTimer > 0) {
+                    state.reconnectTimer--;
+                    if (state.reconnectTimer <= 0) {
+                        let combinedHealth = 0;
+                        const children = state.bosses.filter(b => b.parent === state.pendingReconnectParent);
+                        children.forEach(c => combinedHealth += c.health);
+                        state.pendingReconnectParent.health = Math.max(1, combinedHealth);
+                        state.pendingReconnectParent.splitCooldown = Math.random() * 200 + 300;
+                        state.bosses.push(state.pendingReconnectParent);
+                        state.bosses = state.bosses.filter(b => b.parent !== state.pendingReconnectParent);
+                        state.pendingReconnectParent = null;
+                        updateBossHealthBar();
+                    }
+                }
+
+                if (state.isFleetFireActive) {
+                    state.fleetFireTimer--; state.fleetFireCooldown--;
+                    if (state.fleetFireCooldown <= 0 && (state.shipCount > 1 || state.isUpgraded)) {
+                        if (!state.isUpgraded && !state.isShielded) {
+                            // FIRING NO LONGER CONSUMES SHIPS
+                        }
+                        const shipsToFire = state.isUpgraded ? 50 : Math.min(state.shipCount, 30);
+                        const fleetFireBaseDamage = state.permanentFleetFireUpgrade ? 20 : 10;
+                        const fleetFireLaserDamage = state.permanentFleetFireUpgrade ? 75 : 50;
+                        const projectileType = state.isLaserActive ? 'laser' : 'bullet';
+                        const projectileDamage = state.isLaserActive ? fleetFireLaserDamage : fleetFireBaseDamage;
+                        for (let i = 1; i <= shipsToFire; i++) {
+                            const angle = i * 0.5 + Date.now() * 0.001; const radius = 50 + Math.floor(i / 8) * 30;
+                            const x = player.x + Math.cos(angle) * radius; const y = player.y + player.height + Math.sin(angle) * radius;
+                            state.projectiles.push(new Projectile(x, y, projectileType, projectileDamage));
+                        }
+                        state.fleetFireCooldown = 15;
+                    }
+                    if (state.fleetFireTimer <= 0) state.isFleetFireActive = false;
+                }
+
+                state.projectiles.forEach((p, pIndex) => {
+                    p.update(); let hit = false;
+                    state.bosses.forEach(b => {
+                        if (!hit && p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height) {
+                            if (b instanceof TeleporterBoss && b.isVulnerable) {
+                                b.takeDamage(b.health * 0.3);
+                                b.isVulnerable = false;
+                                b.hitTimer = 60;
+                            } else {
+                                b.takeDamage(p.damage);
+                            }
+                            hit = true;
+                        }
+                    });
+                     state.proximityBombs.forEach((pb, pbIndex) => {
+                        if (!hit && Math.hypot(p.x - pb.x, p.y - pb.y) < pb.size) {
+                            pb.health -= p.damage;
+                            if (pb.health <= 0) state.proximityBombs.splice(pbIndex, 1);
+                            hit = true;
+                        }
+                    });
+                    if (hit || p.y < 0) state.projectiles.splice(pIndex, 1);
+                });
+                
+                state.bombs.forEach((bomb, bombIndex) => {
+                    let hit = false;
+                    state.bosses.forEach(b => {
+                        if (!hit && Math.hypot(bomb.x - (b.x + b.width / 2), bomb.y - (b.y + b.height / 2)) < bomb.size + b.width / 2) {
+                            b.takeDamage(b.health * 0.4);
+                            b.bombHitTimer = 120; // 2 seconds
+                            hit = true;
+                        }
+                    });
+                    if (hit || bomb.y < 0) state.bombs.splice(bombIndex, 1);
+                });
+
+                state.enemies.forEach((e, eIndex) => {
+                    if (e.y > canvas.height) { state.enemies.splice(eIndex, 1); }
+                });
+                
+                state.enemyProjectiles.forEach((p, pIndex) => {
+                     if (Math.hypot(player.x - p.x, (player.y + player.height / 2) - p.y) < player.width / 2 + p.size) {
+                        if (!state.isShielded) { takePlayerDamage(5); }
+                        state.enemyProjectiles.splice(pIndex, 1);
+                    } else if (p.y > canvas.height) { state.enemyProjectiles.splice(pIndex, 1); }
+                });
+
+                state.proximityBombs = state.proximityBombs.filter(pb => pb.health > 0 && pb.timer > 0);
+
+                state.bosses = state.bosses.filter(b => b.health > 0);
+                updateBossHealthBar();
+                if (state.bosses.length === 0 && state.gameActive && state.reconnectTimer <= 0) advanceLevel();
+            }
+        }
+
+        function takePlayerDamage(amount) {
+            if (state.isUpgraded) {
+                state.playerHealth = Math.max(0, state.playerHealth - amount);
+                updatePlayerHealthBar();
+                if (state.playerHealth <= 0) endGame(false);
+            } else {
+                state.shipCount = Math.max(1, state.shipCount - amount);
+                uiElements.shipCount.textContent = state.shipCount;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            state.stars.forEach(star => star.draw());
+            if (!state.gameActive) return;
+            if (state.gamePaused) {
+                // Draw a semi-transparent overlay when paused
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+
+            state.gates.forEach(g => g.draw());
+            state.powerups.forEach(p => p.draw());
+            state.projectiles.forEach(p => p.draw());
+            state.bombs.forEach(b => b.draw());
+            state.enemies.forEach(e => e.draw());
+            state.enemyProjectiles.forEach(p => p.draw());
+            state.proximityBombs.forEach(pb => pb.draw());
+            state.bosses.forEach(b => b.draw());
+            
+            // Player
+            ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15;
+            ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(player.x - player.width / 2, player.y + player.height); ctx.lineTo(player.x + player.width / 2, player.y + player.height); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+            if (!state.isUpgraded) {
+                const shipsToDraw = Math.min(state.shipCount - 1, 50);
+                for (let i = 1; i <= shipsToDraw; i++) {
+                    const angle = i * 0.5; const radius = 50 + Math.floor(i / 8) * 30;
+                    const x = player.x + Math.cos(angle) * radius; const y = player.y + player.height + Math.sin(angle) * radius;
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.5)'; ctx.beginPath(); ctx.moveTo(x, y-10); ctx.lineTo(x - 10, y + 10); ctx.lineTo(x + 10, y + 10); ctx.closePath(); ctx.fill();
+                }
+            }
+            if (state.isShielded) {
+                ctx.strokeStyle = '#00aaff'; ctx.fillStyle = 'rgba(0, 170, 255, 0.3)'; ctx.lineWidth = 3; ctx.shadowColor = '#00aaff'; ctx.shadowBlur = 20;
+                ctx.beginPath(); ctx.arc(player.x, player.y + player.height/2, player.width, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
+            }
+            if (state.isLaserActive) {
+                const laserColor = state.isUltraLaser ? 'rgba(0, 200, 255, 0.6)' : 'rgba(255, 0, 255, 0.5)';
+                const shadowColor = state.isUltraLaser ? '#00ccff' : '#ff00ff';
+                ctx.fillStyle = laserColor; ctx.shadowColor = shadowColor; ctx.shadowBlur = 30;
+                ctx.fillRect(player.x - 20, 0, 40, player.y);
+            }
+        }
+        
+        function updateBossHealthBar() {
+            const totalMaxHealth = state.bosses.reduce((sum, b) => sum + b.maxHealth, 0);
+            const totalCurrentHealth = state.bosses.reduce((sum, b) => sum + b.health, 0);
+            if (totalMaxHealth === 0) { uiElements.bossHealthBar.style.width = '0%'; return; }
+            const percentage = (totalCurrentHealth / totalMaxHealth) * 100;
+            uiElements.bossHealthBar.style.width = `${percentage}%`;
+        }
+
+        function updatePlayerHealthBar() {
+            const percentage = (state.playerHealth / state.maxPlayerHealth) * 100;
+            uiElements.playerHealthBar.style.width = `${percentage}%`;
+        }
+
+        function updateLaserStatusUI() {
+            if (state.hugeLaserCharges > 0) {
+                uiElements.powerupStatusLaser.textContent = `Huge Laser (x${state.hugeLaserCharges}) Ready! (Press L)`;
+                uiElements.powerupStatusLaser.classList.remove('hidden');
+            } else {
+                uiElements.powerupStatusLaser.classList.add('hidden');
+            }
+        }
+
+        function gameLoop() {
+            if (!state.gamePaused) {
+                update();
+            }
+            draw();
+            if (state.gameActive) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // --- Shard and Shop Logic ---
+        function loadShards() {
+            const savedShards = localStorage.getItem('triangleShipForceShards');
+            playerShards = savedShards ? parseInt(savedShards, 10) : 0;
+            updateShardDisplay();
+        }
+        function saveShards() {
+            localStorage.setItem('triangleShipForceShards', playerShards);
+            updateShardDisplay();
+        }
+        function updateShardDisplay() {
+            uiElements.shardBalanceMenu.textContent = playerShards;
+            uiElements.shardBalanceShop.textContent = playerShards;
+        }
+        function populateShop() {
+            uiElements.shopItemsContainer.innerHTML = '';
+            for (const [id, item] of Object.entries(SHOP_DATA)) {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'shop-item p-4 rounded-lg flex justify-between items-center';
+                itemEl.innerHTML = `
+                    <div>
+                        <h3 class="text-2xl font-bold">${item.name}</h3>
+                        <p class="text-sm text-gray-400">${item.description}</p>
+                    </div>
+                    <button id="buy-${id}" class="bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg">
+                        Buy (${item.cost})
+                    </button>
+                `;
+                uiElements.shopItemsContainer.appendChild(itemEl);
+                
+                const buyButton = document.getElementById(`buy-${id}`);
+                buyButton.addEventListener('click', () => buyPowerup(id, item.cost));
+            }
+        }
+        function updateShopButtons() {
+            for (const [id, item] of Object.entries(SHOP_DATA)) {
+                const buyButton = document.getElementById(`buy-${id}`);
+                if (buyButton) {
+                    buyButton.disabled = playerShards < item.cost || preBoughtPowerups.includes(id);
+                    if (preBoughtPowerups.includes(id)) {
+                        buyButton.textContent = 'Owned';
+                    } else {
+                         buyButton.textContent = `Buy (${item.cost})`;
+                    }
+                }
+            }
+        }
+        function buyPowerup(id, cost) {
+            if (playerShards >= cost && !preBoughtPowerups.includes(id)) {
+                playerShards -= cost;
+                preBoughtPowerups.push(id);
+                saveShards();
+                updateShopButtons();
+            }
+        }
+
+        // --- Gemini API Call ---
+        async function getBossIntel() {
+            const boss = state.bosses[0];
+            if (!boss) return;
+
+            uiElements.intelModal.classList.remove('hidden');
+            uiElements.intelContent.textContent = 'Generating backstory...';
+            uiElements.bossIntelButton.disabled = true;
+            uiElements.bossIntelButton.textContent = 'Loading...';
+
+            const prompt = `Create a short, epic backstory (2-3 sentences) for a video game space boss named "${boss.name}". It is level ${state.currentLevel} and I have a fleet of ${state.shipCount} ships.`;
+            
+            try {
+                 const apiKey = "";
+                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                 const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+                 const response = await fetch(apiUrl, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify(payload)
+                 });
+
+                 if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                 }
+
+                 const result = await response.json();
+                 
+                 if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    uiElements.intelContent.textContent = text;
+                 } else {
+                    throw new Error("Unexpected API response structure");
+                 }
+
+            } catch (error) {
+                console.error("Error fetching boss intel:", error);
+                uiElements.intelContent.textContent = "Could not retrieve intel. The cosmic archives are silent.";
+            } finally {
+                uiElements.bossIntelButton.disabled = false;
+                uiElements.bossIntelButton.textContent = '✨ Get Boss Intel';
+            }
+        }
+
+
+        // --- Event Listeners ---
+        function resizeCanvas() {
+            canvas.width = gameContainer.clientWidth; canvas.height = gameContainer.clientHeight;
+            player.y = canvas.height - 100; player.x = canvas.width / 2; 
+            player.targetX = player.x; player.targetY = player.y;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        canvas.addEventListener('mousemove', (e) => { 
+            const rect = canvas.getBoundingClientRect(); 
+            player.targetX = e.clientX - rect.left;
+            player.targetY = e.clientY - rect.top;
+        });
+        canvas.addEventListener('touchmove', (e) => { 
+            e.preventDefault(); 
+            const rect = canvas.getBoundingClientRect(); 
+            player.targetX = e.touches[0].clientX - rect.left;
+            player.targetY = e.touches[0].clientY - rect.top;
+        }, { passive: false });
+        
+        uiElements.normalModeButton.addEventListener('click', () => startGame('normal'));
+        uiElements.endlessModeButton.addEventListener('click', () => startGame('endless'));
+        uiElements.restartButton.addEventListener('click', () => startGame(state.gameMode));
+        
+        const goToMainMenu = () => {
+            uiElements.endScreen.classList.add('hidden');
+            uiElements.pauseModal.classList.add('hidden');
+            uiElements.ui.classList.add('hidden');
+            uiElements.startScreen.classList.remove('hidden');
+            uiElements.playerHealthContainer.classList.add('hidden');
+            uiElements.shipCountUi.innerHTML = 'Ships: <span id="shipCount">1</span>';
+            state.gameActive = false;
+            state.gamePaused = false;
+        };
+        uiElements.mainMenuButton.addEventListener('click', goToMainMenu);
+        uiElements.pauseMainMenuButton.addEventListener('click', goToMainMenu);
+
+        uiElements.shopButton.addEventListener('click', () => {
+            uiElements.startScreen.classList.add('hidden');
+            uiElements.shopScreen.classList.remove('hidden');
+            updateShopButtons();
+        });
+        uiElements.backToMenuButton.addEventListener('click', () => {
+            uiElements.shopScreen.classList.add('hidden');
+            uiElements.startScreen.classList.remove('hidden');
+        });
+        uiElements.bossIntelButton.addEventListener('click', getBossIntel);
+        uiElements.closeIntelButton.addEventListener('click', () => {
+            uiElements.intelModal.classList.add('hidden');
+        });
+        uiElements.authorButton.addEventListener('click', () => {
+            uiElements.authorModal.classList.remove('hidden');
+        });
+        uiElements.closeAuthorButton.addEventListener('click', () => {
+            uiElements.authorModal.classList.add('hidden');
+        });
+        uiElements.pauseButton.addEventListener('click', () => {
+            state.gamePaused = true;
+            uiElements.pauseModal.classList.remove('hidden');
+        });
+        uiElements.resumeButton.addEventListener('click', () => {
+            state.gamePaused = false;
+            uiElements.pauseModal.classList.add('hidden');
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'p' && state.hasFleetFirePowerup && state.bossFight && !state.isFleetFireActive) {
+                state.hasFleetFirePowerup = false; state.isFleetFireActive = true; state.fleetFireTimer = 300;
+                uiElements.powerupStatus.classList.add('hidden');
+            }
+            if (key === 'l' && state.hugeLaserCharges > 0 && state.bossFight && !state.isLaserActive) {
+                state.hugeLaserCharges--;
+                state.isLaserActive = true; state.laserTimer = 300;
+                state.isUltraLaser = state.isUltraModeActive;
+                updateLaserStatusUI();
+                state.bosses.forEach(b => {
+                    if (b instanceof SpawnerBoss) {
+                        b.health = 0; // Instakill SpawnerBoss
+                    } else {
+                        const damage = state.isUltraLaser ? b.health / 2 : b.health / 3;
+                        b.takeDamage(damage);
+                    }
+                });
+                updateBossHealthBar();
+            }
+            if (key === 'b' && state.hasBombPowerup && state.bossFight) {
+                state.hasBombPowerup = false;
+                if (state.isUltraModeActive) {
+                    state.bombs.push(new Bomb(player.x - 20, player.y));
+                    state.bombs.push(new Bomb(player.x, player.y));
+                    state.bombs.push(new Bomb(player.x + 20, player.y));
+                } else {
+                    state.bombs.push(new Bomb(player.x, player.y));
+                }
+                uiElements.powerupStatusBomb.classList.add('hidden');
+            }
+        });
+
+        // Initial setup
+        resizeCanvas();
+        loadShards();
+        populateShop();
+    </script>
+</body>
+</html>
