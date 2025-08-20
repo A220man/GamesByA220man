@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retrieve the Model</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; overflow: hidden; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .modal-bg { background-color: rgba(0, 0, 0, 0.85); transition: opacity 0.5s ease-in-out; }
+        .level-container { background: linear-gradient(145deg, #1f2937, #374151); box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.3); }
+        canvas { background-color: #111827; border-radius: 0.5rem; }
+        .menu-button { transition: all 0.2s ease-in-out; }
+        .menu-button:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
+        .level-select-btn { transition: all 0.2s ease-in-out; }
+        .level-select-btn:hover:not(:disabled) { transform: scale(1.05); background-color: #4f46e5; }
+        .level-select-btn:disabled { cursor: not-allowed; background-color: #4b5563; }
+        .plane-box { background: repeating-linear-gradient(45deg, #606dbc, #606dbc 10px, #465298 10px, #465298 20px); border: 4px solid #354285; }
+        .keypad-btn, .combo-btn, .keycard-btn { transition: all 0.1s ease-in-out; }
+        .keypad-btn:active, .combo-btn:active, .keycard-btn:active { transform: scale(0.95); }
+        .combo-dial { user-select: none; }
+        
+        /* Vault Animation */
+        .vault-door { transition: transform 1s cubic-bezier(0.68, -0.55, 0.27, 1.55); transform-style: preserve-3d; }
+        .vault-door.left { transform-origin: left; }
+        .vault-door.open.left { transform: perspective(1200px) rotateY(-110deg); }
+
+        /* Level 21 Vault Doors */
+        .tri-door { transition: transform 2s ease-in-out; }
+        .tri-door.top { clip-path: polygon(0 0, 100% 0, 50% 50%); }
+        .tri-door.bottom { clip-path: polygon(50% 50%, 100% 100%, 0 100%); }
+        .tri-door.left { clip-path: polygon(0 0, 50% 50%, 0 100%); }
+        .tri-door.right { clip-path: polygon(50% 50%, 100% 0, 100% 100%); }
+        .tri-door.open.top { transform: translateY(-100%); }
+        .tri-door.open.bottom { transform: translateY(100%); }
+        .tri-door.open.left { transform: translateX(-100%); }
+        .tri-door.open.right { transform: translateX(100%); }
+        
+        #wheel { transition: transform 0.2s linear; }
+        #barcode { cursor: grab; position: relative; }
+        #barcode:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
+
+    <!-- Main Menu View -->
+    <div id="main-menu-view" class="w-full max-w-md text-center">
+        <h1 class="font-orbitron text-6xl font-bold text-indigo-400 mb-8">Retrieve the Model</h1>
+        <div class="space-y-4">
+            <button id="play-btn" class="menu-button bg-indigo-600 text-white font-bold py-4 px-10 rounded-lg text-2xl w-full">Play</button>
+            <button id="collection-btn" class="menu-button bg-gray-700 text-white font-bold py-4 px-10 rounded-lg text-2xl w-full">Collection</button>
+        </div>
+    </div>
+
+    <!-- Level Select View -->
+    <div id="level-select-view" class="hidden w-full max-w-4xl text-center">
+        <h1 class="font-orbitron text-5xl font-bold text-indigo-400 mb-8">Select a Level</h1>
+        <div id="level-grid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4 mb-6"></div>
+        <button class="back-to-menu-btn menu-button bg-gray-700 text-white font-bold py-3 px-8 rounded-lg text-xl">Back to Menu</button>
+    </div>
+
+    <!-- Collection View -->
+    <div id="collection-view" class="hidden w-full max-w-4xl text-center">
+        <h1 class="font-orbitron text-5xl font-bold text-indigo-400 mb-8">Your Collection</h1>
+        <div id="collection-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 bg-gray-900 p-4 rounded-lg min-h-[200px]"></div>
+        <button class="back-to-menu-btn menu-button bg-gray-700 text-white font-bold py-3 px-8 rounded-lg text-xl">Back to Menu</button>
+    </div>
+
+    <!-- Modals -->
+    <div id="story-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full text-center border-2 border-indigo-500">
+            <h1 class="font-orbitron text-4xl font-bold text-indigo-400 mb-4">Your Mission</h1>
+            <p class="text-lg text-gray-300 mb-6 leading-relaxed">You got a bad grade on a very important test (a 67%!), so your parents locked each of your model planes in a high-security vault. The first vault has the three toy planes you got when you were 6. Though you got better grades over time, they forgot to unlock the vaults and even forgot the passwords. Your mission is to get all your model planes back.</p>
+            <button id="start-mission-btn" class="menu-button bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg text-lg">Start Mission</button>
+        </div>
+    </div>
+     <div id="controls-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center border-2 border-indigo-500">
+            <h1 class="font-orbitron text-4xl font-bold text-indigo-400 mb-6">Controls</h1>
+            <div class="text-left space-y-3 text-lg">
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">Arrow Keys</kbd> - Move Left/Right</p>
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">Shift</kbd> - Hop</p>
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">Ctrl</kbd> - Crouch</p>
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">Alt / Option</kbd> - Walk Slowly</p>
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">F</kbd> - Toggle Flashlight (in dark levels)</p>
+                <p><kbd class="font-bold bg-gray-700 p-2 rounded">Esc</kbd> - Pause Game</p>
+            </div>
+            <button id="begin-btn" class="mt-8 menu-button bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg">Begin</button>
+        </div>
+    </div>
+    <div id="pause-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border-2 border-yellow-500">
+            <h1 class="font-orbitron text-5xl font-bold text-yellow-400 mb-8">PAUSED</h1>
+            <div class="flex justify-center gap-4">
+                <button id="resume-btn" class="menu-button bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg">Resume</button>
+                <button id="pause-menu-btn" class="menu-button bg-gray-700 text-white font-bold py-3 px-8 rounded-lg text-lg">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    <div id="vault-reveal-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="relative w-96 h-96">
+            <div class="absolute inset-0 bg-gray-900 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden">
+                <div id="revealed-content" class="text-center opacity-0 transition-opacity duration-1000 delay-1000"></div>
+            </div>
+            <div id="vault-door-container"></div>
+        </div>
+    </div>
+    <div id="level-complete-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border-2 border-green-500">
+            <h1 id="level-complete-title" class="font-orbitron text-4xl font-bold text-green-400 mb-4">LEVEL COMPLETE!</h1>
+            <button id="continue-btn" class="menu-button bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg">Continue</button>
+        </div>
+    </div>
+    <div id="game-complete-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full text-center border-2 border-yellow-400">
+            <h1 class="font-orbitron text-4xl font-bold text-yellow-300 mb-4">MISSION COMPLETE</h1>
+            <p class="text-lg text-gray-300 mb-6 leading-relaxed">After all that surviving and advancing stealthy, you got all your model planes that were locked up for 4 months. You eventually closed the vaults back and even put the hint and barcode papers at the vault doors. If you weren't brave enough, the planes would have been retrieved years later.</p>
+            <button id="end-game-btn" class="menu-button bg-yellow-500 text-white font-bold py-3 px-8 rounded-lg text-lg">Main Menu</button>
+        </div>
+    </div>
+    <div id="level-fail-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border-2 border-red-500">
+            <h1 class="font-orbitron text-4xl font-bold text-red-400 mb-2">MISSION FAILED</h1>
+            <p id="fail-reason" class="text-lg text-gray-300 mb-6"></p>
+            <div class="flex justify-center gap-4">
+                <button id="retry-btn" class="menu-button bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg text-lg">Retry Level</button>
+                <button id="fail-menu-btn" class="menu-button bg-gray-700 text-white font-bold py-3 px-8 rounded-lg text-lg">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    <div id="dad-checking-modal" class="hidden modal-bg absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-red-900 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border-4 border-red-500 animate-pulse">
+            <h1 class="font-orbitron text-5xl font-bold text-white mb-4">DAD IS CHECKING!</h1>
+            <p class="text-2xl text-red-200 mb-6">Hide! You have <span id="hide-timer">3</span> seconds!</p>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="hidden w-full h-full flex flex-col items-center justify-center p-4 relative"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const views = { mainMenu: document.getElementById('main-menu-view'), levelSelect: document.getElementById('level-select-view'), collection: document.getElementById('collection-view'), game: document.getElementById('game-container') };
+            const modals = { story: document.getElementById('story-modal'), controls: document.getElementById('controls-modal'), pause: document.getElementById('pause-modal'), vaultReveal: document.getElementById('vault-reveal-modal'), levelComplete: document.getElementById('level-complete-modal'), gameComplete: document.getElementById('game-complete-modal'), levelFail: document.getElementById('level-fail-modal'), dadChecking: document.getElementById('dad-checking-modal') };
+            
+            // --- Game State ---
+            let unlockedLevels = 1, collectedPlanes = [], currentLevel = 1;
+            let gameLoop, player, vault, corridorObjects, levelConfig;
+            let keysPressed = {}, hasKey = false, hasHint = false, hasKeycard = false, hasBarcode = false, breakerUsed = false;
+            let dadCheckingInterval, multiLockStage = 0, hackingProgress = 0, hackingInterval;
+            let darknessTimer, monsterPhase = 0, flashlightOn = false, flashlightBattery = 100, monsterAnger = 1;
+            let trainTimer;
+            let isPaused = false;
+
+            const TOTAL_LEVELS = 21;
+            const allUnlockMethods = ['key', 'combination', 'breaker', 'keycard', 'wheel', 'barcode', 'hacking', 'phone'];
+            const corridorTypes = ['lasers', 'clear', 'wet_floor', 'closet', 'train'];
+            const levelData = {
+                1: { title: "The Old Toy Box", unlockMethod: 'keypad', password: '6', passwordHint: 'Hint: Your age when you got these planes.', plane: '3 Toy Planes' },
+                2: { title: "The Workshop Vault", unlockMethod: 'random', combination: [7, 3, 9], passwordHint: 'Hint: 7-3-9', plane: 'Boeing 747', wheelTarget: 90 },
+                3: { title: "The Study Vault", unlockMethod: 'keypad', password: '67', passwordHint: 'Hint: Your test grade.', plane: 'P-51 Mustang', corridorType: 'fixed', obstacles: [{ type: 'tripwire', x: 200, y: 385, width: 60, height: 5 }, { type: 'laser', x: 400, y: 0, width: 10, height: 360, active: true }, { type: 'laser', x: 600, y: 40, width: 10, height: 360, active: true }] },
+                4: { title: "The Hallway Gauntlet", unlockMethod: 'random', plane: 'Airbus A320', corridorType: 'random', passwordHint: 'Hint: 4-8-2', combination: [4,8,2], keycardType: 'tap', wheelTarget: 270 },
+                5: { title: "Dad's Office Antechamber", unlockMethod: 'random', plane: 'SR-71 Blackbird', corridorType: 'random', dadChecking: true, passwordHint: 'Hint: 1-0-1', combination: [1,0,1], keycardType: 'insert', wheelTarget: 0 },
+                6: { title: "The Red Door", unlockMethod: 'keycard', plane: 'Lockheed L-1011 TriStar', corridorType: 'random', keycardType: 'tap', keycardColor: 'red' },
+                7: { title: "The Round Door", unlockMethod: 'wheel', plane: 'F-22 Raptor', corridorType: 'random', wheelTarget: 180 },
+                8: { title: "The Server Room", unlockMethod: 'hacking', plane: 'B-2 Spirit', corridorType: 'random' },
+                9: { title: "The Loading Bay", unlockMethod: 'barcode', plane: 'C-130 Hercules', corridorType: 'random' },
+                10: { title: "The Smart Vault", unlockMethod: 'phone', plane: 'Delta A350', corridorType: 'random' },
+                11: { title: "The Slippery Passage", unlockMethod: 'random', plane: 'MD-11', corridorType: 'wet_floor'},
+                12: { title: "The Closet Tunnel", unlockMethod: 'random', plane: 'F-14 Tomcat', corridorType: 'closet'},
+                13: { title: "The Train Tunnel", unlockMethod: 'random', plane: 'Shinkansen N700', corridorType: 'train'},
+                14: { title: "The Supersonic Vault", unlockMethod: 'random', plane: 'Concorde', corridorType: 'random', passwordHint: 'Hint: 2-2-3', combination: [2,2,3], wheelTarget: 180 },
+                15: { title: "The Fortress", unlockMethod: 'random', plane: 'B-52 Stratofortress', corridorType: 'random', passwordHint: 'Hint: 5-2-0', combination: [5,2,0], wheelTarget: 0 },
+                16: { title: "The Four-Engine Room", unlockMethod: 'random', plane: 'Airbus A340', corridorType: 'random', passwordHint: 'Hint: 3-4-0', combination: [3,4,0], wheelTarget: 90 },
+                17: { title: "The Stealth Hangar", unlockMethod: 'random', plane: 'F-117 Nighthawk', corridorType: 'random', passwordHint: 'Hint: 1-1-7', combination: [1,1,7], wheelTarget: 270 },
+                18: { title: "The Tri-Jet Vault", unlockMethod: 'random', plane: 'McDonnell Douglas DC-10', corridorType: 'random', passwordHint: 'Hint: 1-0-1', combination: [1,0,1], wheelTarget: 180 },
+                19: { title: "The Delta Wing", unlockMethod: 'random', plane: 'Avro Vulcan', corridorType: 'random', passwordHint: 'Hint: V-X-7', combination: [8,9,7], wheelTarget: 0 },
+                20: { title: "The Dark Room", unlockMethod: 'random', plane: 'SR-72 Darkstar', corridorType: 'clear', darkness: true },
+                21: { title: "The Final Vault", unlockMethod: 'multi', plane: 'Boeing 787<br>Airbus A380<br>Concorde', corridorType: 'random', dadChecking: true, multiLock: [
+                    { method: 'keycard', keycardType: 'insert', keycardColor: '#FFD700', hint: 'Find the Gold Keycard.' },
+                    { method: 'keypad', password: '787', hint: 'Hint: It is called the Dreamliner' },
+                    { method: 'combination', combination: [3,8,0], hint: 'Hint: fastest airliner in the world(modern)' }
+                ]}
+            };
+
+            // --- View Management & Navigation ---
+            function showView(viewId) { Object.values(views).forEach(v => v.classList.add('hidden')); if (views[viewId]) views[viewId].classList.remove('hidden'); if (viewId === 'levelSelect') updateLevelSelect(); if (viewId === 'collection') updateCollection(); }
+            document.getElementById('play-btn').addEventListener('click', () => showView('levelSelect'));
+            document.getElementById('collection-btn').addEventListener('click', () => showView('collection'));
+            document.querySelectorAll('.back-to-menu-btn').forEach(btn => btn.addEventListener('click', () => showView('mainMenu')));
+            document.getElementById('start-mission-btn').addEventListener('click', () => { modals.story.classList.add('hidden'); modals.controls.classList.remove('hidden'); });
+            document.getElementById('begin-btn').addEventListener('click', () => { modals.controls.classList.add('hidden'); startLevel(1, true); });
+            document.getElementById('continue-btn').addEventListener('click', () => { modals.levelComplete.classList.add('hidden'); views.game.innerHTML = ''; showView('levelSelect'); });
+            document.getElementById('end-game-btn').addEventListener('click', () => { modals.gameComplete.classList.add('hidden'); views.game.innerHTML = ''; showView('mainMenu'); });
+            document.getElementById('retry-btn').addEventListener('click', () => { modals.levelFail.classList.add('hidden'); startLevel(currentLevel, false, multiLockStage); });
+            document.getElementById('pause-menu-btn').addEventListener('click', () => { modals.pause.classList.add('hidden'); clearAllTimers(); views.game.innerHTML = ''; showView('mainMenu'); });
+            document.getElementById('fail-menu-btn').addEventListener('click', () => { modals.levelFail.classList.add('hidden'); views.game.innerHTML = ''; showView('mainMenu'); });
+            document.getElementById('resume-btn').addEventListener('click', resumeGame);
+
+            // --- UI Updates ---
+            function updateLevelSelect() {
+                const grid = document.getElementById('level-grid'); grid.innerHTML = '';
+                for (let i = 1; i <= TOTAL_LEVELS; i++) {
+                    const btn = document.createElement('button'); btn.className = 'level-select-btn text-white font-bold py-4 rounded-lg text-2xl'; btn.textContent = i;
+                    if (i <= unlockedLevels) { btn.disabled = false; btn.classList.add('bg-indigo-600'); btn.addEventListener('click', () => {
+                        if (i === 1 && !collectedPlanes.some(p => p.level === 1)) modals.story.classList.remove('hidden');
+                        else startLevel(i);
+                    }); } else { btn.disabled = true; btn.textContent = '🔒'; }
+                    grid.appendChild(btn);
+                }
+            }
+            function updateCollection() {
+                const grid = document.getElementById('collection-grid'); grid.innerHTML = '';
+                if (collectedPlanes.length === 0) { grid.innerHTML = `<p class="col-span-full text-gray-400">No planes collected yet.</p>`; return; }
+                collectedPlanes.forEach(plane => { const item = document.createElement('div'); item.className = 'bg-gray-800 p-4 rounded-lg text-center'; item.innerHTML = `<p class="text-indigo-300 font-bold">Vault ${plane.level}</p><p class="text-xl">${plane.name.replace(/<br>/g, ', ')}</p>`; grid.appendChild(item); });
+            }
+
+            // --- Game Logic ---
+            function startLevel(levelNum, fromStory = false, stage = 0) {
+                if (!fromStory && levelNum === 1 && !collectedPlanes.some(p => p.level === 1)) {
+                    modals.story.classList.remove('hidden');
+                    return;
+                }
+                currentLevel = levelNum;
+                multiLockStage = stage;
+                levelConfig = levelData[levelNum] || { title: `Vault ${levelNum}`, unlockMethod: 'random', plane: `Plane Set ${levelNum}`, password: '123', combination: [1,2,3], passwordHint: 'Hint: 123', keycardType: 'tap', corridorType: 'random', wheelTarget: 180};
+                if (levelConfig.unlockMethod === 'random') {
+                    let possibleMethods = [...allUnlockMethods]; if(breakerUsed) possibleMethods = possibleMethods.filter(m => m !== 'breaker');
+                    levelConfig.chosenMethod = possibleMethods[Math.floor(Math.random() * possibleMethods.length)];
+                    if(levelConfig.chosenMethod === 'breaker') breakerUsed = true;
+                } else { levelConfig.chosenMethod = levelConfig.unlockMethod; }
+                
+                views.game.innerHTML = `
+                <div class="level-container rounded-2xl p-6 md:p-8 w-full max-w-6xl">
+                    <h2 id="level-title-text" class="font-orbitron text-2xl md:text-3xl font-bold text-center mb-1 text-indigo-300"></h2>
+                    <p id="level-hint" class="text-center text-gray-400 mb-4 h-6"></p>
+                    <div id="corridor-view"><canvas id="game-canvas" width="1000" height="400"></canvas></div>
+                    <div id="keypad-view" class="hidden"><div class="flex flex-col md:flex-row gap-8 items-center justify-center"><div class="relative w-64 h-64 md:w-80 md:h-80"><div class="absolute inset-0 bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner"><div class="plane-box w-full h-full rounded-lg"></div></div></div><div class="w-full md:w-64"><div id="keypad-message-display" class="h-16 text-center flex items-center justify-center mb-4 rounded-lg bg-gray-900 p-2"><p class="text-lg font-medium">Enter Password</p></div><div class="bg-gray-900 p-4 rounded-lg"><div id="password-display" class="h-12 bg-gray-800 rounded mb-4 flex items-center justify-end px-4 text-2xl font-orbitron tracking-widest"></div><div class="grid grid-cols-3 gap-2"><button class="keypad-btn" data-key="1">1</button><button class="keypad-btn" data-key="2">2</button><button class="keypad-btn" data-key="3">3</button><button class="keypad-btn" data-key="4">4</button><button class="keypad-btn" data-key="5">5</button><button class="keypad-btn" data-key="6">6</button><button class="keypad-btn" data-key="7">7</button><button class="keypad-btn" data-key="8">8</button><button class="keypad-btn" data-key="9">9</button><button id="clear-btn" class="bg-yellow-600">C</button><button class="keypad-btn" data-key="0">0</button><button id="enter-btn" class="bg-green-600">OK</button></div></div></div></div></div>
+                    <div id="combination-view" class="hidden"><div class="flex flex-col md:flex-row gap-8 items-center justify-center"><div class="relative w-64 h-64 md:w-80 md:h-80"><div class="absolute inset-0 bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner"><div class="plane-box w-full h-full rounded-lg"></div></div></div><div class="w-full md:w-80"><div id="combo-message-display" class="h-16 text-center flex items-center justify-center mb-4 rounded-lg bg-gray-900 p-2"><p class="text-lg font-medium">Enter Combination</p></div><div class="bg-gray-900 p-4 rounded-lg flex flex-col items-center"><div class="flex gap-4 mb-4"><div class="combo-dial"><button class="combo-btn" data-dial="0" data-dir="1">▲</button><div data-dial-display="0">0</div><button class="combo-btn" data-dial="0" data-dir="-1">▼</button></div><div class="combo-dial"><button class="combo-btn" data-dial="1" data-dir="1">▲</button><div data-dial-display="1">0</div><button class="combo-btn" data-dial="1" data-dir="-1">▼</button></div><div class="combo-dial"><button class="combo-btn" data-dial="2" data-dir="1">▲</button><div data-dial-display="2">0</div><button class="combo-btn" data-dial="2" data-dir="-1">▼</button></div></div><button id="combo-enter-btn" class="w-full bg-green-600 hover:bg-green-700 text-2xl p-4 rounded">UNLOCK</button></div></div></div></div>
+                    <div id="keycard-view" class="hidden"><div class="flex flex-col md:flex-row gap-8 items-center justify-center"><div class="relative w-64 h-64 md:w-80 md:h-80"><div class="absolute inset-0 bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner"><div class="plane-box w-full h-full rounded-lg"></div></div></div><div class="w-full md:w-80"><div id="keycard-message-display" class="h-16 text-center flex items-center justify-center mb-4 rounded-lg bg-gray-900 p-2"><p class="text-lg font-medium">Use Keycard</p></div><div class="bg-gray-900 p-4 rounded-lg flex flex-col items-center gap-4"><div id="reader-slot" class="w-48 h-12 bg-gray-800 rounded flex items-center justify-center font-orbitron text-2xl text-yellow-400 tracking-widest"></div><button id="tap-btn" class="keycard-btn w-full">TAP</button><button id="insert-btn" class="keycard-btn w-full">INSERT</button></div></div></div></div>
+                    <div id="wheel-view" class="hidden"><div class="flex flex-col md:flex-row gap-8 items-center justify-center"><div class="relative w-64 h-64 md:w-80 md:h-80"><div class="absolute inset-0 bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner"><div class="plane-box w-full h-full rounded-lg"></div></div></div><div class="w-full md:w-80"><div id="wheel-message-display" class="h-16 text-center flex items-center justify-center mb-4 rounded-lg bg-gray-900 p-2"><p class="text-lg font-medium">Rotate Wheel to Position</p></div><div class="bg-gray-900 p-4 rounded-lg flex flex-col items-center gap-4 relative"><div class="absolute top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-yellow-400"></div><div class="w-48 h-48 bg-gray-800 rounded-full flex items-center justify-center"><svg id="wheel" width="180" height="180" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" stroke="#4B5563" stroke-width="8" fill="#374151"/><line x1="50" y1="50" x2="50" y2="10" stroke="#FBBF24" stroke-width="4"/></svg></div><div class="flex gap-4 w-full"><button id="wheel-left-btn" class="keycard-btn w-full">◀</button><button id="wheel-right-btn" class="keycard-btn w-full">▶</button></div></div></div></div></div>
+                    <div id="barcode-view" class="hidden"><div class="flex flex-col md:flex-row gap-8 items-center justify-center"><div class="relative w-64 h-64 md:w-80 md:h-80"><div class="absolute inset-0 bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner"><div class="plane-box w-full h-full rounded-lg"></div></div></div><div class="w-full md:w-80"><div id="barcode-message-display" class="h-16 text-center flex items-center justify-center mb-4 rounded-lg bg-gray-900 p-2"><p class="text-lg font-medium">Scan Barcode</p></div><div class="bg-gray-900 p-4 rounded-lg flex flex-col items-center gap-4"><div class="w-64 h-32 bg-gray-800 rounded flex items-center justify-center relative"><div class="w-full h-2 bg-red-500 absolute top-1/2 -translate-y-1/2"></div></div><div id="barcode" class="bg-white p-2 rounded"><div class="w-24 h-12 bg-black flex flex-col justify-between"> <div class="h-1 bg-white"></div><div class="h-2 bg-white"></div><div class="h-1 bg-white"></div><div class="h-1 bg-white"></div> </div></div></div></div></div></div>
+                    <button id="phone-btn" class="hidden absolute bottom-10 right-10 menu-button bg-gray-800 p-4 rounded-full border-2 border-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-phone" viewBox="0 0 16 16"><path d="M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z"/><path d="M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg></button>
+                </div>`;
+                
+                views.game.querySelectorAll('.keypad-btn, .combo-btn, .keycard-btn').forEach(b => b.classList.add('bg-gray-700', 'hover:bg-gray-600', 'text-2xl', 'p-4', 'rounded'));
+                views.game.querySelectorAll('.combo-dial').forEach(d => d.classList.add('bg-gray-800', 'p-4', 'rounded', 'text-center'));
+                views.game.querySelectorAll('.combo-dial div').forEach(d => d.classList.add('text-5xl', 'font-orbitron', 'my-2'));
+                views.game.querySelectorAll('.combo-dial button').forEach(d => d.classList.add('text-3xl'));
+                
+                const canvas = document.getElementById('game-canvas'), ctx = canvas.getContext('2d'), hintEl = document.getElementById('level-hint');
+                document.getElementById('level-title-text').textContent = `LEVEL ${currentLevel}: ${levelConfig.title}`;
+
+                player = { x: 50, y: 370, width: 20, height: 20, speed: 4, velocityY: 0, isJumping: false, isCrouching: false, isHiding: false };
+                vault = { x: canvas.width - 60, y: canvas.height - 70, width: 60, height: 70 };
+                corridorObjects = [];
+                hasKey = false; hasHint = false; hasKeycard = false; hasBarcode = false; hackingProgress = 0; clearInterval(hackingInterval);
+                monsterPhase = 0; flashlightOn = false; flashlightBattery = 100; monsterAnger = 1; clearTimeout(darknessTimer); clearTimeout(trainTimer);
+
+                if (levelConfig.corridorType === 'random') corridorObjects.push(...generateRandomCorridor(canvas.width));
+                else if (levelConfig.corridorType === 'fixed') corridorObjects.push(...levelConfig.obstacles);
+                else corridorObjects.push(...generateRandomCorridor(canvas.width, levelConfig.corridorType));
+                
+                let method = levelConfig.chosenMethod;
+                if (method === 'multi') method = levelConfig.multiLock[multiLockStage].method;
+
+                const needsHint = method === 'keypad' || method === 'combination';
+                if (needsHint) { corridorObjects.push({ type: 'trashcan', x: 400, y: canvas.height - 40, width: 30, height: 30 }); hintEl.textContent = (levelConfig.multiLock && levelConfig.multiLock[multiLockStage].hint) || "Find the hint."; }
+                else if (method === 'key') { corridorObjects.push({ type: 'key', x: 700, y: canvas.height - 25, width: 20, height: 10 }); hintEl.textContent = "Find the key."; }
+                else if (method === 'breaker') { corridorObjects.push({ type: 'breaker', x: 700, y: canvas.height - 50, width: 20, height: 40, active: false }); hintEl.textContent = "Find the breaker switch."; }
+                else if (method === 'keycard') {
+                    const cardConfig = levelConfig.unlockMethod === 'multi' ? levelConfig.multiLock[multiLockStage] : levelConfig;
+                    corridorObjects.push({ type: 'keycard', x: 700, y: canvas.height - 30, width: 25, height: 15, cardType: cardConfig.keycardType, color: cardConfig.keycardColor || 'cyan' });
+                    hintEl.textContent = (levelConfig.multiLock && levelConfig.multiLock[multiLockStage].hint) || "Find the keycard.";
+                } else if (method === 'barcode') {
+                    corridorObjects.push({ type: 'barcode_paper', x: 700, y: canvas.height - 25, width: 20, height: 20 });
+                    hintEl.textContent = "Find the barcode slip.";
+                } else if (method === 'hacking') {
+                    corridorObjects.push({ type: 'computer', x: 400, y: canvas.height - 50, width: 40, height: 40 });
+                    hintEl.textContent = "Find the computer terminal.";
+                } else if (method === 'wheel') {
+                    hintEl.textContent = "Get to the vault to turn the wheel.";
+                } else if (method === 'phone') {
+                    hintEl.textContent = "Use your phone to unlock the vault.";
+                }
+                
+                if (levelConfig.dadChecking) {
+                    corridorObjects.push({ type: 'hidingSpot', x: 300, y: 320, width: 60, height: 80 });
+                    corridorObjects.push({ type: 'hidingSpot', x: 700, y: 320, width: 60, height: 80 });
+                    startDadTimer();
+                }
+                if (levelConfig.darkness) {
+                    hintEl.textContent = "It's dark... Press F for your flashlight.";
+                    monsterPhase = 0; // Reset monster
+                    advanceMonster();
+                }
+
+                showView('game');
+                setupUnlockListeners();
+                gameLoop = setInterval(() => { update(canvas, hintEl); draw(ctx); }, 1000 / 60);
+            }
+
+            function generateRandomCorridor(canvasWidth, forceType = null) {
+                const type = forceType || corridorTypes[Math.floor(Math.random() * corridorTypes.length)];
+                const obstacles = [];
+                if (type === 'clear') return [];
+
+                const obstacleCount = 2 + Math.floor(currentLevel / 3);
+                let lastX = 200;
+
+                if (type === 'wet_floor') {
+                    obstacles.push({ type: 'wet_floor_sign', x: 250, y: 350, width: 20, height: 40 });
+                    obstacles.push({ type: 'wet_floor', x: 300, y: 390, width: 400, height: 10 });
+                } else if (type === 'closet') {
+                    for (let i = 0; i < 5; i++) {
+                        obstacles.push({ type: 'belt', x: 300 + i * 100, y: 0, width: 10, height: 370 });
+                    }
+                } else if (type === 'train') {
+                    vault.y = 270; // Move vault up to platform
+                    obstacles.push({ type: 'platform', x: 800, y: 330, width: 200, height: 70 });
+                    obstacles.push({ type: 'stairs', x: 750, y: 330, width: 50, height: 60 });
+                    obstacles.push({ type: 'crossing_light', x: 150, y: 320, width: 10, height: 70, on: false });
+                    trainTimer = setTimeout(() => {
+                        const light = corridorObjects.find(o => o.type === 'crossing_light');
+                        if(light) light.on = true;
+                        trainTimer = setTimeout(() => {
+                            corridorObjects.push({ type: 'train', x: -400, y: 350, width: 400, height: 40, speed: 25 });
+                        }, 2000);
+                    }, 3000);
+                } else if (type === 'lasers') {
+                    for (let i = 0; i < obstacleCount; i++) {
+                        const x = lastX + 150 + Math.random() * 100;
+                        if (x > canvasWidth - 200) break;
+                        if (Math.random() > 0.5) obstacles.push({ type: 'laser', x: x, y: Math.random() > 0.5 ? 0 : 40, width: 10, height: 360, active: true });
+                        else obstacles.push({ type: 'tripwire', x: x, y: 385, width: 60, height: 5 });
+                        lastX = x;
+                    }
+                }
+                return obstacles;
+            }
+
+            function draw(ctx) {
+                ctx.clearRect(0, 0, 1000, 400); ctx.fillStyle = '#4B5563'; ctx.fillRect(0, 390, 1000, 10);
+                let h = player.isCrouching ? player.height / 2 : player.height; let y = player.isCrouching ? player.y + player.height / 2 : player.y;
+                ctx.fillStyle = player.isHiding ? '#4338CA' : '#6366F1'; ctx.beginPath(); ctx.arc(player.x + player.width / 2, y + h / 2, player.width / 2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#71717A'; ctx.fillRect(vault.x, vault.y, vault.width, vault.height);
+                corridorObjects.forEach(obj => {
+                    if (obj.type === 'key') { ctx.fillStyle = '#34D399'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'breaker') { ctx.fillStyle = obj.active ? '#4ADE80' : '#F87171'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'trashcan') { ctx.fillStyle = '#9CA3AF'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'tripwire') { ctx.fillStyle = '#FBBF24'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'laser' && obj.active) { ctx.fillStyle = 'rgba(239, 68, 68, 0.7)'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); ctx.fillStyle = '#FECACA'; ctx.fillRect(obj.x + 3, obj.y, 4, obj.height); }
+                    else if (obj.type === 'keycard') {
+                        ctx.fillStyle = obj.color; ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+                        ctx.fillStyle = 'white'; ctx.beginPath();
+                        if (obj.cardType === 'tap') { ctx.moveTo(obj.x + 12.5, obj.y + 3); ctx.lineTo(obj.x + 17.5, obj.y + 12); ctx.lineTo(obj.x + 7.5, obj.y + 12); }
+                        else { ctx.moveTo(obj.x + 12.5, obj.y + 2); ctx.lineTo(obj.x + 15, obj.y + 7); ctx.lineTo(obj.x + 20, obj.y + 8); ctx.lineTo(obj.x + 16, obj.y + 12); ctx.lineTo(obj.x + 12.5, obj.y + 15); ctx.lineTo(obj.x + 9, obj.y + 12); ctx.lineTo(obj.x + 5, obj.y + 8); ctx.lineTo(obj.x + 10, obj.y + 7); }
+                        ctx.closePath(); ctx.fill();
+                    } else if (obj.type === 'barcode_paper') { ctx.fillStyle = 'white'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'computer') {
+                        ctx.fillStyle = '#059669'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+                        if (hackingProgress > 0) {
+                            ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(obj.x, obj.y - 15, obj.width, 10);
+                            ctx.fillStyle = '#10B981'; ctx.fillRect(obj.x, obj.y - 15, obj.width * (hackingProgress / 100), 10);
+                        }
+                    } else if (obj.type === 'wet_floor') { ctx.fillStyle = 'rgba(56, 189, 248, 0.3)'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'wet_floor_sign') { ctx.fillStyle = '#FBBF24'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'belt') { ctx.fillStyle = '#a16207'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'platform') { ctx.fillStyle = '#4B5563'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                    else if (obj.type === 'stairs') { for(let i=0; i<5; i++) { ctx.fillStyle = '#6B7280'; ctx.fillRect(obj.x + i*10, obj.y + i*12, 10, 60 - i*12); } }
+                    else if (obj.type === 'crossing_light') {
+                        ctx.fillStyle = '#1F2937'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+                        if (obj.on && Math.floor(Date.now() / 500) % 2 === 0) { ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(obj.x + 5, obj.y + 10, 5, 0, Math.PI*2); ctx.fill(); }
+                    } else if (obj.type === 'train') { ctx.fillStyle = '#FBBF24'; ctx.fillRect(obj.x, obj.y, obj.width, obj.height); }
+                });
+
+                if(levelConfig.darkness) {
+                    ctx.save();
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0,0,1000,400);
+                    if(flashlightOn) {
+                        ctx.globalCompositeOperation = 'destination-out';
+                        ctx.beginPath();
+                        ctx.arc(player.x + player.width/2, player.y + player.height/2, 150, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                    if(monsterPhase > 0) {
+                        ctx.fillStyle = `rgba(127, 29, 29, ${monsterPhase * 0.2})`;
+                        ctx.beginPath();
+                        ctx.arc(500, 200, monsterPhase * 50, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    // Draw flashlight battery
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(10, 10, 104, 24);
+                    ctx.fillStyle = flashlightBattery < 25 ? '#EF4444' : '#FBBF24';
+                    ctx.fillRect(12, 12, flashlightBattery, 20);
+                }
+            }
+
+            function update(canvas, hintEl) {
+                if (isPaused) return;
+                // Flashlight logic
+                if (levelConfig.darkness) {
+                    if (keysPressed['f'] || keysPressed['F']) {
+                        if (!flashlightOn && flashlightBattery > 0) { // Turning ON
+                            flashlightOn = true;
+                            if (monsterPhase > 0) {
+                                monsterPhase = 0;
+                                monsterAnger += 0.5; // Monster gets faster each time it's flashed
+                                clearTimeout(darknessTimer);
+                                advanceMonster();
+                            }
+                        } else if (flashlightOn) { // Turning OFF
+                            flashlightOn = false;
+                        }
+                        keysPressed['f'] = keysPressed['F'] = false; // Prevent rapid toggling
+                    }
+
+                    if (flashlightOn) {
+                        flashlightBattery -= 100 / (4 * 60); // 4 seconds lifetime at 60fps
+                        if (flashlightBattery <= 0) {
+                            flashlightBattery = 0;
+                            flashlightOn = false;
+                        }
+                    } else if (flashlightBattery < 100) {
+                        flashlightBattery += 0.5; // Recharge rate
+                    }
+                    if (monsterPhase === 3 && !flashlightOn) {
+                        failLevel("A monster gave you a heart attack!");
+                        return;
+                    }
+                }
+
+                player.isCrouching = keysPressed['Control'] || false;
+                player.isWalking = keysPressed['Alt'] || false;
+                const currentSpeed = player.isWalking ? player.speed / 2 : player.speed;
+                if (keysPressed['ArrowRight'] && player.x < canvas.width - player.width) player.x += currentSpeed;
+                if (keysPressed['ArrowLeft'] && player.x > 0) player.x -= currentSpeed;
+                if (keysPressed['Shift'] && !player.isJumping && !player.isCrouching) { player.velocityY = -12; player.isJumping = true; }
+                player.y += player.velocityY; player.velocityY += 0.6;
+                let floorPosition = canvas.height - (player.isCrouching ? player.height / 2 : player.height) - 10;
+                if (player.y > floorPosition) { player.y = floorPosition; player.velocityY = 0; player.isJumping = false; }
+                if (player.x < vault.x + vault.width && player.x + player.width > vault.x) handleVaultInteraction();
+                
+                let nearComputer = false;
+                player.isHiding = false; // Reset hiding status each frame
+                corridorObjects.forEach((obj, index) => {
+                    if (obj.type === 'train') obj.x += obj.speed;
+                    if (player.x < obj.x + obj.width && player.x + player.width > obj.x && player.y < obj.y + obj.height && player.y + player.height > obj.y) {
+                        if (obj.type === 'key') { hasKey = true; corridorObjects.splice(index, 1); }
+                        else if (obj.type === 'keycard') { hasKeycard = true; corridorObjects.splice(index, 1); }
+                        else if (obj.type === 'barcode_paper') { hasBarcode = true; corridorObjects.splice(index, 1); }
+                        else if (obj.type === 'breaker' && !obj.active) { obj.active = true; completeLevel(); }
+                        else if (obj.type === 'trashcan' && !hasHint) { hasHint = true; hintEl.textContent = (levelConfig.multiLock && levelConfig.multiLock[multiLockStage].hint) || levelConfig.passwordHint; }
+                        else if (obj.type === 'laser' && obj.active && !player.isCrouching) failLevel("You touched a laser!");
+                        else if (obj.type === 'tripwire' && !player.isJumping) failLevel("You tripped the wire!");
+                        else if (obj.type === 'computer') nearComputer = true;
+                        else if (obj.type === 'wet_floor' && !player.isWalking) failLevel("You slipped on the wet floor!");
+                        else if (obj.type === 'belt' && !player.isCrouching) failLevel("You made a noise in the closet!");
+                        else if (obj.type === 'train') failLevel("You were hit by the train!");
+                        else if (obj.type === 'stairs' && keysPressed['ArrowRight']) {
+                            player.y -= 1.2; // Climb stairs
+                        }
+                        else if (obj.type === 'hidingSpot') {
+                            player.isHiding = true;
+                        }
+                    }
+                });
+
+                if (levelConfig.chosenMethod === 'hacking') {
+                    if (nearComputer && !hackingInterval) {
+                        hackingInterval = setInterval(() => {
+                            hackingProgress += 1;
+                            if (hackingProgress >= 100) {
+                                clearInterval(hackingInterval);
+                                vault.unlocked = true;
+                                hintEl.textContent = "Hacking complete! Get to the vault.";
+                            }
+                        }, 50);
+                    } else if (!nearComputer && hackingInterval) {
+                        clearInterval(hackingInterval);
+                        hackingInterval = null;
+                    }
+                }
+            }
+            
+            function advanceMonster() {
+                if (monsterPhase >= 3) return;
+                const isMoving = keysPressed['ArrowRight'] || keysPressed['ArrowLeft'];
+                const delay = (isMoving ? 2000 : 4000) / monsterAnger; // Faster if moving or angry
+                darknessTimer = setTimeout(() => {
+                    monsterPhase++;
+                    advanceMonster();
+                }, delay);
+            }
+
+            function handleVaultInteraction() {
+                let method = levelConfig.chosenMethod;
+                if (method === 'multi') method = levelConfig.multiLock[multiLockStage].method;
+                const needsHint = method === 'keypad' || method === 'combination';
+                if ((needsHint && !hasHint) || (method === 'key' && !hasKey) || (method === 'keycard' && !hasKeycard) || (method === 'barcode' && !hasBarcode)) return;
+                if (method === 'hacking' && !vault.unlocked) return;
+                
+                if (method === 'phone') {
+                    document.getElementById('phone-btn').classList.remove('hidden');
+                    return;
+                }
+
+                clearInterval(gameLoop);
+                document.getElementById('corridor-view').classList.add('hidden');
+                if (method === 'keypad') document.getElementById('keypad-view').classList.remove('hidden');
+                else if (method === 'combination') document.getElementById('combination-view').classList.remove('hidden');
+                else if (method === 'keycard') {
+                    const cardConfig = levelConfig.unlockMethod === 'multi' ? levelConfig.multiLock[multiLockStage] : levelConfig;
+                    document.getElementById('reader-slot').textContent = cardConfig.keycardType.toUpperCase();
+                    document.getElementById('keycard-view').classList.remove('hidden');
+                }
+                else if (method === 'wheel') document.getElementById('wheel-view').classList.remove('hidden');
+                else if (method === 'barcode') document.getElementById('barcode-view').classList.remove('hidden');
+                else completeLevel();
+            }
+
+            function setupUnlockListeners() {
+                // Keypad, Combination, Keycard...
+                let keypadInput = ''; const passwordDisplay = document.getElementById('password-display'); const keypadMessage = document.getElementById('keypad-message-display').querySelector('p');
+                document.querySelectorAll('.keypad-btn').forEach(b => b.addEventListener('click', () => { if(keypadInput.length < 4) keypadInput += b.dataset.key; passwordDisplay.textContent = keypadInput; }));
+                document.getElementById('clear-btn').addEventListener('click', () => { keypadInput = ''; passwordDisplay.textContent = ''; });
+                document.getElementById('enter-btn').addEventListener('click', () => {
+                    let pass = levelConfig.unlockMethod === 'multi' ? levelConfig.multiLock[multiLockStage].password : levelConfig.password;
+                    if (keypadInput === pass) handleUnlockSuccess(); else { keypadMessage.textContent = 'ACCESS DENIED'; setTimeout(() => keypadMessage.textContent = 'Enter Password', 1000); }
+                });
+                let comboInput = [0, 0, 0]; const comboDisplays = document.querySelectorAll('[data-dial-display]'); const comboMessage = document.getElementById('combo-message-display').querySelector('p');
+                document.querySelectorAll('.combo-btn').forEach(b => b.addEventListener('click', () => { const dial = parseInt(b.dataset.dial); const dir = parseInt(b.dataset.dir); comboInput[dial] = (comboInput[dial] + dir + 10) % 10; comboDisplays[dial].textContent = comboInput[dial]; }));
+                document.getElementById('combo-enter-btn').addEventListener('click', () => {
+                    let combo = levelConfig.unlockMethod === 'multi' ? levelConfig.multiLock[multiLockStage].combination : levelConfig.combination;
+                    if (JSON.stringify(comboInput) === JSON.stringify(combo)) handleUnlockSuccess(); else { comboMessage.textContent = 'ACCESS DENIED'; setTimeout(() => comboMessage.textContent = 'Enter Combination', 1000); }
+                });
+                const keycardMessage = document.getElementById('keycard-message-display').querySelector('p');
+                document.getElementById('tap-btn').addEventListener('click', () => checkKeycard('tap', keycardMessage));
+                document.getElementById('insert-btn').addEventListener('click', () => checkKeycard('insert', keycardMessage));
+
+                let wheelAngle = 0; const wheel = document.getElementById('wheel');
+                document.getElementById('wheel-left-btn').addEventListener('click', () => { wheelAngle -= 15; wheel.style.transform = `rotate(${wheelAngle}deg)`; checkWheel(); });
+                document.getElementById('wheel-right-btn').addEventListener('click', () => { wheelAngle += 15; wheel.style.transform = `rotate(${wheelAngle}deg)`; checkWheel(); });
+                function checkWheel() { if (Math.abs(wheelAngle % 360) === (levelConfig.wheelTarget || 0)) setTimeout(handleUnlockSuccess, 500); }
+                
+                const barcode = document.getElementById('barcode'); let startY = 0; let isDragging = false;
+                const onMouseMove = (e) => { if(!isDragging) return; barcode.style.transform = `translateY(${e.clientY - startY}px)`; }
+                const onMouseUp = (e) => {
+                    isDragging = false; document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp);
+                    if (startY - e.clientY > 50) handleUnlockSuccess(); else barcode.style.transform = `translateY(0px)`;
+                }
+                barcode.addEventListener('mousedown', (e) => { startY = e.clientY; isDragging = true; document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp); });
+
+                document.getElementById('phone-btn').addEventListener('click', () => {
+                    document.getElementById('phone-btn').classList.add('hidden'); vault.unlocked = true;
+                    document.getElementById('level-hint').textContent = "Phone hack successful! Vault is open.";
+                    setTimeout(completeLevel, 1000);
+                });
+            }
+
+            function checkKeycard(action, messageEl) {
+                const cardConfig = levelConfig.unlockMethod === 'multi' ? levelConfig.multiLock[multiLockStage] : levelConfig;
+                if (action === cardConfig.keycardType) handleUnlockSuccess();
+                else { messageEl.textContent = 'ACCESS DENIED'; setTimeout(() => messageEl.textContent = 'Use Keycard', 1000); }
+            }
+
+            function handleUnlockSuccess() {
+                if (levelConfig.unlockMethod === 'multi') {
+                    multiLockStage++;
+                    if (multiLockStage >= levelConfig.multiLock.length) {
+                        completeLevel();
+                    } else {
+                        Object.values(views.game.children[0].children).forEach(v => v.classList.add('hidden'));
+                        startLevel(currentLevel, false, multiLockStage); 
+                    }
+                } else {
+                    completeLevel();
+                }
+            }
+            
+            function showVaultReveal() {
+                const doorContainer = document.getElementById('vault-door-container');
+                const revealedContent = document.getElementById('revealed-content');
+                revealedContent.innerHTML = `<div class="plane-box p-8"><h3 class="font-orbitron text-3xl text-white">${levelConfig.plane}</h3></div>`;
+                revealedContent.style.opacity = '0';
+                doorContainer.innerHTML = '';
+
+                if (currentLevel === 21) {
+                    doorContainer.innerHTML = `
+                        <div class="tri-door top absolute inset-0 bg-gray-800"></div>
+                        <div class="tri-door bottom absolute inset-0 bg-gray-800"></div>
+                        <div class="tri-door left absolute inset-0 bg-gray-800"></div>
+                        <div class="tri-door right absolute inset-0 bg-gray-800"></div>`;
+                } else {
+                    doorContainer.innerHTML = `<div class="vault-door left absolute inset-0 bg-gray-800 border-r-2 border-gray-900"></div>`;
+                }
+                
+                modals.vaultReveal.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    doorContainer.querySelectorAll('.vault-door, .tri-door').forEach(d => d.classList.add('open'));
+                }, 100);
+
+                setTimeout(() => {
+                    revealedContent.style.opacity = '1';
+                }, 1500);
+
+                setTimeout(() => {
+                    modals.vaultReveal.classList.add('hidden');
+                    if (currentLevel === 21) {
+                        modals.gameComplete.classList.remove('hidden');
+                    } else {
+                        modals.levelComplete.classList.remove('hidden');
+                    }
+                }, 4000);
+            }
+
+            function startDadTimer() { clearInterval(dadCheckingInterval); dadCheckingInterval = setInterval(triggerDadCheck, Math.random() * 10000 + 10000); }
+            function triggerDadCheck() {
+                const timerSpan = document.getElementById('hide-timer'); modals.dadChecking.classList.remove('hidden');
+                let timeLeft = 3; timerSpan.textContent = timeLeft;
+                const countdown = setInterval(() => {
+                    timeLeft--; timerSpan.textContent = timeLeft;
+                    if (timeLeft <= 0) { clearInterval(countdown); modals.dadChecking.classList.add('hidden'); if (!player.isHiding) failLevel("You were caught by your dad!"); }
+                }, 1000);
+            }
+
+            function completeLevel() {
+                clearAllTimers();
+                if (!collectedPlanes.some(p => p.level === currentLevel)) collectedPlanes.push({ level: currentLevel, name: levelConfig.plane });
+                if (currentLevel === unlockedLevels && unlockedLevels < TOTAL_LEVELS) unlockedLevels++;
+                document.getElementById('level-complete-title').textContent = `LEVEL ${currentLevel} COMPLETE!`;
+                showVaultReveal();
+            }
+
+            function failLevel(reason) {
+                clearAllTimers();
+                document.getElementById('fail-reason').textContent = reason;
+                modals.levelFail.classList.remove('hidden');
+            }
+            
+            function pauseGame() {
+                isPaused = true;
+                clearInterval(gameLoop);
+                clearAllTimers();
+                modals.pause.classList.remove('hidden');
+            }
+
+            function resumeGame() {
+                isPaused = false;
+                modals.pause.classList.add('hidden');
+                gameLoop = setInterval(() => { update(document.getElementById('game-canvas'), document.getElementById('level-hint')); draw(document.getElementById('game-canvas').getContext('2d')); }, 1000 / 60);
+                if(levelConfig.dadChecking) startDadTimer();
+                if(levelConfig.darkness) advanceMonster();
+                // Note: Train timer does not resume, adding to the challenge.
+            }
+
+            function clearAllTimers() {
+                clearInterval(gameLoop);
+                clearInterval(dadCheckingInterval);
+                clearTimeout(darknessTimer);
+                clearTimeout(trainTimer);
+            }
+
+            window.addEventListener('keydown', (e) => { 
+                if (e.key === 'Escape' && gameLoop) {
+                    isPaused ? resumeGame() : pauseGame();
+                }
+                keysPressed[e.key] = true; 
+            });
+            window.addEventListener('keyup', (e) => { keysPressed[e.key] = false; });
+            
+            showView('mainMenu');
+        });
+    </script>
+</body>
+</html>
