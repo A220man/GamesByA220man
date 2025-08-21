@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>obby of 30</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Press+Start+2P&display=swap');
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 1000px; /* Max width for the game area */
+            aspect-ratio: 16 / 9;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #87CEEB; /* Default sky color */
+        }
+        .ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 0 0 10px rgba(0,0,0,0.7);
+            z-index: 10;
+            pointer-events: none; /* Allow clicks to pass through to canvas unless a menu is active */
+        }
+        .menu {
+            background: rgba(0, 0, 0, 0.75);
+            padding: 2rem 4rem;
+            border-radius: 1rem;
+            border: 2px solid #4f4f4f;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            text-align: center;
+            pointer-events: auto; /* Menus should be clickable */
+        }
+        .menu h1, .menu h2 {
+            font-family: 'Press Start 2P', cursive;
+            color: #ff4141;
+            text-shadow: 0 0 10px #ff0000;
+            margin-bottom: 2rem;
+        }
+         .menu h1 { font-size: 2.5rem; }
+         .menu h2 { font-size: 2rem; }
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(145deg, #5a5a5a, #2c2c2c);
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .btn:hover {
+            background: linear-gradient(145deg, #ff4141, #b32d2d);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 65, 65, 0.4);
+        }
+        .btn:active { transform: translateY(1px); }
+        .char-btn {
+            width: 80px; height: 80px;
+            background: #444; border-radius: 0.5rem;
+            margin: 0.5rem; display: inline-flex;
+            justify-content: center; align-items: center;
+            border: 2px solid transparent;
+        }
+        .char-btn.selected { border-color: #ff4141; }
+        .color-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            margin: 5px;
+            cursor: pointer;
+            display: inline-block;
+            border: 3px solid #555;
+        }
+        .color-btn.selected { border-color: #fff; }
+        .modifier-item { padding: 0.75rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem; margin-bottom: 1rem; }
+        .modifier-item.locked { opacity: 0.6; }
+        .modifier-toggle { display: flex; justify-content: space-between; align-items: center; }
+        .modifier-toggle label { font-size: 1rem; }
+        .modifier-desc { font-size: 0.8rem; color: #ccc; margin-top: 4px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { display: none; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #ff4141; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .game-hud { position: absolute; top: 20px; left: 0; width: 100%; padding: 0 20px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none;}
+        .hud-left, .hud-right { display: flex; align-items: center; gap: 1rem; }
+        #pauseBtn {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            color: white;
+            width: 50px; height: 50px;
+            border-radius: 0.5rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .timer-display { background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 10px; border: 2px solid #ff4141; }
+        .timer-text { font-family: 'Orbitron', sans-serif; font-size: 3rem; font-weight: bold; color: #ff4141; text-shadow: 0 0 10px #ff0000; }
+        .stats-display { background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 10px; text-align: right; }
+        .stats-display p { font-size: 1.25rem; margin: 0; }
+        #gameOverScreen { font-family: 'Press Start 2P', cursive; text-align: center; pointer-events: auto; }
+        #gameOverText { font-size: 5rem; color: #ff0000; text-shadow: 0 0 20px #ff0000; animation: shake 0.5s infinite; }
+        #anomalyText { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: red; opacity: 0; transition: opacity 1s; }
+        #notification { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #ffff00; padding: 15px 30px; border-radius: 10px; font-family: 'Press Start 2P'; font-size: 1rem; z-index: 20; opacity: 0; transition: opacity 0.5s; }
+        @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="uiContainer" class="ui-container">
+            <div id="mainMenu" class="menu">
+                <h1>Obby of 30</h1>
+                <button id="playBtn" class="btn">Play</button>
+                <button id="peacefulBtn" class="btn">Peaceful Mode</button>
+                <button id="modifiersBtn" class="btn">Modifiers</button>
+                <button id="styleBtn" class="btn">Style</button>
+            </div>
+            <div id="modifiersMenu" class="menu hidden">
+                <h2>MODIFIERS</h2>
+                <div id="gliderModifier" class="modifier-item locked">
+                    <div class="modifier-toggle"><label for="gliderToggle">Glider</label><label class="switch"><input type="checkbox" id="gliderToggle" disabled><span class="slider"></span></label></div>
+                    <p class="modifier-desc">Badge: "Don't need to do every step" - Jump over 2 platforms.</p>
+                </div>
+                <div id="laserDisablerModifier" class="modifier-item locked">
+                    <div class="modifier-toggle"><label for="laserDisablerToggle">Laser Disabler</label><label class="switch"><input type="checkbox" id="laserDisablerToggle" disabled><span class="slider"></span></label></div>
+                    <p class="modifier-desc">Badge: "Laser Dodger" - Pass all laser sections.</p>
+                </div>
+                 <div id="lowGravityModifier" class="modifier-item locked">
+                    <div class="modifier-toggle"><label for="lowGravityToggle">Low Gravity</label><label class="switch"><input type="checkbox" id="lowGravityToggle" disabled><span class="slider"></span></label></div>
+                    <p class="modifier-desc">Badge: "Air Time" - Stay airborne for 3 seconds.</p>
+                </div>
+                <div id="speedBoostModifier" class="modifier-item locked">
+                    <div class="modifier-toggle"><label for="speedBoostToggle">Speed Boost</label><label class="switch"><input type="checkbox" id="speedBoostToggle" disabled><span class="slider"></span></label></div>
+                    <p class="modifier-desc">Badge: "Need for Speed" - Beat the train section.</p>
+                </div>
+                <button id="backBtn" class="btn">Back</button>
+            </div>
+            <div id="characterMenu" class="menu hidden">
+                <h2>STYLE</h2>
+                <div id="charSelection"></div>
+                <div id="colorSelection" class="mt-4"></div>
+                <button id="styleBackBtn" class="btn">Back</button>
+            </div>
+            <div id="pauseMenu" class="menu hidden">
+                <h2>PAUSED</h2>
+                <button id="resumeBtn" class="btn">Resume</button>
+                <button id="quitBtn" class="btn">Quit to Menu</button>
+            </div>
+            <div id="gameOverScreen" class="hidden">
+                <div class="menu" id="restartMenu">
+                     <button id="restartBtn" class="btn mt-8">Restart</button>
+                </div>
+            </div>
+        </div>
+        <div id="gameHud" class="game-hud hidden">
+            <div class="hud-left">
+                 <button id="pauseBtn">||</button>
+                 <div class="timer-display"><p id="timer" class="timer-text">30:00</p></div>
+            </div>
+            <div class="hud-right">
+                <div class="stats-display">
+                    <p>Highest Checkpoint: <span id="highestSection">0</span></p>
+                    <p>Current Checkpoint: <span id="currentSection">0</span></p>
+                </div>
+            </div>
+        </div>
+        <div id="notification"></div>
+        <p id="anomalyText"></p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let player, keys = {}, camera;
+        let platforms = [], timePickups = [], lasers = [], trains = [], teleportTriggers = [], chasingBall = null, anomaly = null;
+        let disappearingFloorTilesBackup = [], chasingBallBackup = null;
+        let currentCheckpointNum = 0, highestSection = 0;
+        let lastOnPlatformId = null;
+        let airTime = 0;
+        
+        let checkpointsReached = [];
+        let gameActive = false, isPaused = false, timerInterval;
+        let totalTime = 30 * 60;
+
+        let peacefulMode = false;
+        let gliderEnabled = false, laserDisablerEnabled = false, lowGravityEnabled = false, speedBoostEnabled = false;
+        let badges = { glider: false, laserDodger: false, airTime: false, speedDemon: false, peaceful: false };
+
+        const GRAVITY = 0.5, JUMP_FORCE = -12, PLAYER_SPEED = 4, GLIDE_FACTOR = 0.2;
+
+        function init() {
+            canvas.width = 1600; canvas.height = 900;
+            player = { x: 50, y: 400, width: 30, height: 50, vx: 0, vy: 0, onGround: false, color: '#00ff00', shape: 'square' };
+            camera = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+            loadProgress();
+            updateModifiersUI();
+            setupUI();
+            document.addEventListener('keydown', (event) => {
+                keys[event.code] = true;
+                if (event.code === 'Escape' && gameActive) {
+                    togglePause();
+                }
+            });
+            document.addEventListener('keyup', (event) => { keys[event.code] = false; });
+        }
+
+        function loadProgress() {
+            highestSection = localStorage.getItem('highestSectionObby2D') || 0;
+            document.getElementById('highestSection').textContent = highestSection;
+            const savedBadges = JSON.parse(localStorage.getItem('badgesObby2D'));
+            if (savedBadges) badges = savedBadges;
+            player.shape = localStorage.getItem('playerShapeObby2D') || 'square';
+            player.color = localStorage.getItem('playerColorObby2D') || '#00ff00';
+        }
+
+        function saveProgress() {
+            localStorage.setItem('highestSectionObby2D', highestSection);
+            localStorage.setItem('badgesObby2D', JSON.stringify(badges));
+            localStorage.setItem('playerShapeObby2D', player.shape);
+            localStorage.setItem('playerColorObby2D', player.color);
+        }
+
+        function generateLevel() {
+            platforms = []; timePickups = []; lasers = []; trains = []; teleportTriggers = []; chasingBall = null; anomaly = null;
+            disappearingFloorTilesBackup = []; chasingBallBackup = null;
+            checkpointsReached = [{ x: 100, y: 400, index: 0 }];
+            let lastX = 0, lastY = 450;
+            
+            platforms.push({ x: 0, y: 450, w: 200, h: 50, isCheckpoint: true, color: '#00dd00', index: 0, platformId: Math.random() });
+            lastX = 200;
+            
+            for (let i = 1; i <= 40; i++) {
+                let sectionEndX;
+                if (i === 1 && !peacefulMode) { sectionEndX = generateLaserSection(lastX, lastY); } 
+                else if (i === 2 && !peacefulMode) { sectionEndX = generateDisappearingFloorSection(lastX, lastY); }
+                else if (i === 3 && !peacefulMode) { sectionEndX = generateRandomLaserSection(lastX, lastY); }
+                else if (i === 4 && !peacefulMode) { sectionEndX = generateTrainSection(lastX, lastY, i); }
+                else { sectionEndX = generateRandomSection(lastX, lastY, 4); }
+                lastX = sectionEndX.x;
+                lastY = sectionEndX.y;
+                
+                platforms.push({ x: lastX, y: lastY, w: 150, h: 40, isCheckpoint: true, color: '#00dd00', index: i, platformId: Math.random() });
+                lastX += 150;
+            }
+        }
+
+        function generateRandomSection(startX, startY, platformCount) {
+             let lastX = startX, lastY = startY;
+            for (let i = 0; i < platformCount; i++) {
+                const x = lastX + 100 + Math.random() * 80;
+                let y = lastY + (Math.random() - 0.5) * 80;
+                if (y > 600) y = 600;
+                if (y < 200) y = 200;
+                const w = 80 + Math.random() * 70;
+                platforms.push({ x, y, w, h: 20, color: '#666', platformId: Math.random() });
+                if (Math.random() > 0.85 && !peacefulMode) timePickups.push({ x: x + (w / 2), y: y - 40, radius: 15, color: '#ffff00' });
+                lastX = x; lastY = y;
+            }
+            return {x: lastX + 150, y: lastY};
+        }
+        function generateLaserSection(startX, startY) {
+            let currentX = startX + 200;
+            const groundY = startY + 100;
+            platforms.push({ x: startX, y: groundY, w: 1000, h: 20, color: '#555', platformId: Math.random() });
+            if (!laserDisablerEnabled) {
+                for (let i = 0; i < 5; i++) {
+                    lasers.push({ x: currentX + i * 160, y: groundY - 20, w: 60, h: 20, color: '#ff0000' });
+                }
+            }
+            return {x: startX + 1000, y: startY};
+        }
+        function generateDisappearingFloorSection(startX, startY) {
+            disappearingFloorTilesBackup = [];
+            let currentX = startX + 150;
+            const floorY = startY;
+            const sectionLength = 1200;
+            const tileSize = 60;
+            for (let i = 0; i < sectionLength / tileSize; i++) {
+                const tile = { x: currentX + i * tileSize, y: floorY, w: tileSize - 2, h: 20, color: '#999', isDisappearing: true, platformId: Math.random() };
+                platforms.push(tile);
+                disappearingFloorTilesBackup.push(tile);
+            }
+            chasingBall = { x: startX + 100, y: floorY - 50, radius: 25, speed: 2.5, color: '#cc0000', active: false, triggerX: startX + 150 };
+            chasingBallBackup = JSON.parse(JSON.stringify(chasingBall));
+            return {x: currentX + sectionLength, y: floorY};
+        }
+        
+        function generateRandomLaserSection(startX, startY) {
+            let currentX = startX + 200;
+            const groundY = startY + 100;
+            const ceilingY = groundY - 300;
+            platforms.push({ x: startX, y: groundY, w: 1200, h: 20, color: '#555', platformId: Math.random() });
+            platforms.push({ x: startX, y: ceilingY, w: 1200, h: 20, color: '#555', platformId: Math.random() }); // Ceiling
+            if (!laserDisablerEnabled) {
+                for (let i = 0; i < 10; i++) {
+                    lasers.push({
+                        x: currentX + i * 90, y: ceilingY + 20, w: 15, h: groundY - (ceilingY + 20), color: '#ff0000',
+                        isVertical: true, shooterX: currentX + i * 90 + 7.5, shooterY: ceilingY,
+                        on: Math.random() > 0.5, timer: Math.random() * 3, onTime: 1 + Math.random(), offTime: 1 + Math.random() * 2
+                    });
+                }
+            }
+            return {x: startX + 1200, y: startY};
+        }
+
+        function generateTrainSection(startX, startY, nextCheckpointIndex) {
+            const sectionLength = 1500;
+            const groundY = startY + 250;
+            platforms.push({ x: startX, y: groundY + 20, w: sectionLength, h: 40, color: '#333', platformId: Math.random() });
+            platforms.push({ x: startX, y: groundY - 20, w: sectionLength, h: 20, color: '#666', isTrainTrack: true, platformId: Math.random() });
+            platforms.push({ x: startX, y: groundY - 120, w: sectionLength, h: 20, color: '#666', isTrainTrack: true, platformId: Math.random() });
+            for(let i=0; i<3; i++){
+                trains.push({ x: startX + 500 + i * 600, y: groundY - 100, w: 150, h: 80, speed: -5 - Math.random() * 3, color: '#e67e22' });
+                trains.push({ x: startX + 200 + i * 700, y: groundY, w: 200, h: 80, speed: 4 + Math.random() * 2, color: '#3498db' });
+            }
+            teleportTriggers.push({ x: startX + sectionLength - 50, y: 0, w: 50, h: canvas.height, targetCheckpointIndex: nextCheckpointIndex });
+            return {x: startX + sectionLength, y: startY};
+        }
+
+        function setupUI() {
+            const playBtn = document.getElementById('playBtn');
+            const peacefulBtn = document.getElementById('peacefulBtn');
+            const modifiersBtn = document.getElementById('modifiersBtn');
+            const styleBtn = document.getElementById('styleBtn');
+            const backBtn = document.getElementById('backBtn');
+            const styleBackBtn = document.getElementById('styleBackBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resumeBtn = document.getElementById('resumeBtn');
+            const quitBtn = document.getElementById('quitBtn');
+            const restartBtn = document.getElementById('restartBtn');
+            const mainMenu = document.getElementById('mainMenu');
+            const modifiersMenu = document.getElementById('modifiersMenu');
+            const characterMenu = document.getElementById('characterMenu');
+            
+            playBtn.addEventListener('click', () => { peacefulMode = false; startGame(); });
+            peacefulBtn.addEventListener('click', () => {
+                if(badges.peaceful) {
+                    peacefulMode = true;
+                    startGame();
+                } else {
+                    showNotification("Unlock by collecting a time clock first!");
+                }
+            });
+            modifiersBtn.addEventListener('click', () => { mainMenu.classList.add('hidden'); modifiersMenu.classList.remove('hidden'); });
+            styleBtn.addEventListener('click', () => { mainMenu.classList.add('hidden'); characterMenu.classList.remove('hidden'); });
+            backBtn.addEventListener('click', () => { mainMenu.classList.remove('hidden'); modifiersMenu.classList.add('hidden'); });
+            styleBackBtn.addEventListener('click', () => { mainMenu.classList.remove('hidden'); characterMenu.classList.add('hidden'); });
+            restartBtn.addEventListener('click', () => location.reload());
+            pauseBtn.addEventListener('click', togglePause);
+            resumeBtn.addEventListener('click', togglePause);
+            quitBtn.addEventListener('click', quitToMenu);
+
+            const charSelectionDiv = document.getElementById('charSelection');
+            const shapes = ['square', 'circle', 'triangle', 'star', 'hexagon'];
+            charSelectionDiv.innerHTML = '';
+            shapes.forEach(shape => {
+                const btn = document.createElement('button');
+                btn.className = 'char-btn';
+                if(player.shape === shape) btn.classList.add('selected');
+                const canvasEl = document.createElement('canvas');
+                canvasEl.width = 50; canvasEl.height = 50;
+                const shapeCtx = canvasEl.getContext('2d');
+                drawPlayerShape(shapeCtx, {x: 25, y: 25, width: 40, height: 40, color: '#fff', shape: shape});
+                btn.appendChild(canvasEl);
+                btn.onclick = () => {
+                    player.shape = shape;
+                    saveProgress();
+                    document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                };
+                charSelectionDiv.appendChild(btn);
+            });
+
+            const colorSelectionDiv = document.getElementById('colorSelection');
+            const colors = ['#00ff00', '#00ffff', '#ffff00', '#ff00ff', '#ffffff', '#ffa500'];
+            colorSelectionDiv.innerHTML = '';
+            colors.forEach(color => {
+                const btn = document.createElement('div');
+                btn.className = 'color-btn';
+                btn.style.backgroundColor = color;
+                if (player.color === color) btn.classList.add('selected');
+                btn.onclick = () => {
+                    player.color = color;
+                    saveProgress();
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                };
+                colorSelectionDiv.appendChild(btn);
+            });
+        }
+        
+        function updateModifiersUI() {
+            const gliderMod = document.getElementById('gliderModifier');
+            const gliderToggle = document.getElementById('gliderToggle');
+            if (badges.glider) { gliderMod.classList.remove('locked'); gliderToggle.disabled = false; } 
+            else { gliderMod.classList.add('locked'); gliderToggle.disabled = true; }
+
+            const laserMod = document.getElementById('laserDisablerModifier');
+            const laserToggle = document.getElementById('laserDisablerToggle');
+            if (badges.laserDodger) { laserMod.classList.remove('locked'); laserToggle.disabled = false; }
+            else { laserMod.classList.add('locked'); laserToggle.disabled = true; }
+
+            const lowGravMod = document.getElementById('lowGravityModifier');
+            const lowGravToggle = document.getElementById('lowGravityToggle');
+            if (badges.airTime) { lowGravMod.classList.remove('locked'); lowGravToggle.disabled = false; }
+            else { lowGravMod.classList.add('locked'); lowGravToggle.disabled = true; }
+
+            const speedMod = document.getElementById('speedBoostModifier');
+            const speedToggle = document.getElementById('speedBoostToggle');
+            if (badges.speedDemon) { speedMod.classList.remove('locked'); speedToggle.disabled = false; }
+            else { speedMod.classList.add('locked'); speedToggle.disabled = true; }
+
+            const peacefulBtn = document.getElementById('peacefulBtn');
+            if (badges.peaceful) { peacefulBtn.classList.remove('locked'); }
+            else { peacefulBtn.classList.add('locked'); }
+        }
+        function showNotification(text) {
+            const notification = document.getElementById('notification');
+            notification.textContent = text;
+            notification.style.opacity = 1;
+            setTimeout(() => { notification.style.opacity = 0; }, 3000);
+        }
+
+        function startGame() {
+            gliderEnabled = badges.glider && document.getElementById('gliderToggle').checked;
+            laserDisablerEnabled = badges.laserDodger && document.getElementById('laserDisablerToggle').checked;
+            lowGravityEnabled = badges.airTime && document.getElementById('lowGravityToggle').checked;
+            speedBoostEnabled = badges.speedDemon && document.getElementById('speedBoostToggle').checked;
+
+            generateLevel();
+            document.getElementById('uiContainer').classList.add('hidden');
+            document.getElementById('gameHud').classList.remove('hidden');
+            
+            totalTime = 30 * 60;
+            updateTimerDisplay();
+            if (!peacefulMode) {
+                timerInterval = setInterval(tickTimer, 1000);
+            }
+            
+            gameActive = true;
+            isPaused = false;
+            gameLoop();
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseMenu = document.getElementById('pauseMenu');
+            const uiContainer = document.getElementById('uiContainer');
+            if (isPaused) {
+                clearInterval(timerInterval);
+                uiContainer.classList.remove('hidden');
+                document.getElementById('mainMenu').classList.add('hidden');
+                pauseMenu.classList.remove('hidden');
+            } else {
+                if (!peacefulMode) {
+                    timerInterval = setInterval(tickTimer, 1000);
+                }
+                uiContainer.classList.add('hidden');
+                pauseMenu.classList.add('hidden');
+                gameLoop();
+            }
+        }
+
+        function quitToMenu() {
+            gameActive = false;
+            isPaused = false;
+            anomaly = null;
+            clearInterval(timerInterval);
+
+            document.getElementById('gameHud').classList.add('hidden');
+            const uiContainer = document.getElementById('uiContainer');
+            uiContainer.classList.remove('hidden');
+            
+            document.getElementById('pauseMenu').classList.add('hidden');
+            document.getElementById('modifiersMenu').classList.add('hidden');
+            document.getElementById('characterMenu').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+
+            document.getElementById('mainMenu').classList.remove('hidden');
+        }
+
+        function gameOver() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            const anomalyText = document.getElementById('anomalyText');
+            const messages = ["slowness doesnt give life but death", "I AM WHO SNEAKS ON YOU FOR 30", "u are slow"];
+            let msgIndex = 0;
+            
+            canvas.style.transition = 'background-color 2s';
+            canvas.style.backgroundColor = '#000';
+            document.getElementById('gameHud').classList.add('hidden');
+            document.getElementById('uiContainer').classList.remove('hidden');
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('pauseMenu').classList.add('hidden');
+
+            function showNextMessage() {
+                if (msgIndex < messages.length) {
+                    anomalyText.textContent = messages[msgIndex];
+                    anomalyText.style.opacity = 1;
+                    setTimeout(() => {
+                        anomalyText.style.opacity = 0;
+                        setTimeout(() => {
+                            msgIndex++;
+                            showNextMessage();
+                        }, 1000);
+                    }, 2000);
+                } else {
+                    const restartMenu = document.getElementById('restartMenu');
+                    const gameOverScreen = document.getElementById('gameOverScreen');
+                    gameOverScreen.classList.remove('hidden');
+                    restartMenu.classList.remove('hidden');
+                }
+            }
+            showNextMessage();
+        }
+
+        function tickTimer() { if (totalTime > 0) { totalTime--; updateTimerDisplay(); updateSkyColor(); } else { gameOver(); } }
+        
+        function updateTimerDisplay() {
+            const minutes = Math.floor(totalTime / 60).toString().padStart(2, '0');
+            const seconds = (totalTime % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+        }
+        
+        function updateSkyColor() {
+            const initialTime = 30 * 60;
+            const percentage = totalTime / initialTime;
+            
+            let startColor, endColor;
+            if(peacefulMode){
+                startColor = { r: 255, g: 165, b: 0 }; // Morning Orange
+                endColor = { r: 135, g: 206, b: 250 }; // Noon Blue
+            } else {
+                startColor = { r: 135, g: 206, b: 235 }; // Blue
+                endColor = { r: 255, g: 65, b: 65 }; // Red
+            }
+
+            const r = Math.floor(endColor.r + (startColor.r - endColor.r) * percentage);
+            const g = Math.floor(endColor.g + (startColor.g - endColor.g) * percentage);
+            const b = Math.floor(endColor.b + (startColor.b - endColor.b) * percentage);
+            
+            canvas.style.backgroundColor = `rgb(${r},${g},${b})`;
+        }
+
+        function updateGameObjects(deltaTime) {
+            lasers.forEach(l => {
+                if (l.timer !== undefined) {
+                    if(l.timer > 0) l.timer -= deltaTime;
+                    else { l.on = !l.on; l.timer = l.on ? l.onTime : l.offTime; }
+                }
+            });
+            trains.forEach(t => {
+                t.x += t.speed;
+                if(t.speed < 0 && t.x + t.w < camera.x) t.x = camera.x + canvas.width + 200;
+                if(t.speed > 0 && t.x > camera.x + canvas.width) t.x = camera.x - 200 - t.w;
+            });
+            if (chasingBall && chasingBall.active) {
+                chasingBall.x += chasingBall.speed;
+                for (let i = platforms.length - 1; i >= 0; i--) {
+                    if (platforms[i].isDisappearing && (platforms[i].x + platforms[i].w) < chasingBall.x) {
+                        platforms.splice(i, 1);
+                    }
+                }
+            }
+        }
+
+        function updatePlayer(deltaTime) {
+            if (!gameActive) return;
+
+            player.vx = 0;
+            let currentSpeed = speedBoostEnabled ? PLAYER_SPEED * 1.5 : PLAYER_SPEED;
+            if (keys['KeyA'] || keys['ArrowLeft']) player.vx = -currentSpeed;
+            if (keys['KeyD'] || keys['ArrowRight']) player.vx = currentSpeed;
+            player.x += player.vx;
+
+            let currentGravity = lowGravityEnabled ? GRAVITY * 0.6 : GRAVITY;
+            if (gliderEnabled && (keys['ShiftLeft'] || keys['ShiftRight']) && player.vy > 0) currentGravity *= GLIDE_FACTOR;
+            player.vy += currentGravity;
+            player.y += player.vy;
+
+            player.onGround = false;
+            let onPlatform = null;
+            platforms.forEach((platform) => {
+                if (player.x < platform.x + platform.w && player.x + player.width > platform.x &&
+                    player.y + player.height > platform.y && player.y + player.height < platform.y + platform.h + 10 && player.vy >= 0) {
+                    player.onGround = true;
+                    player.vy = 0;
+                    player.y = platform.y - player.height;
+                    onPlatform = platform;
+                }
+            });
+            
+            if ((keys['Space'] || keys['ArrowUp']) && player.onGround) { 
+                player.vy = JUMP_FORCE; 
+                player.onGround = false; 
+                lastOnPlatformId = onPlatform.platformId;
+            }
+            
+            if (!player.onGround) {
+                airTime += deltaTime;
+                if (airTime >= 3 && !badges.airTime) {
+                    unlockBadge('airTime');
+                }
+            } else {
+                airTime = 0;
+            }
+
+            if(onPlatform){
+                if (onPlatform.isCheckpoint) {
+                    currentCheckpointNum = onPlatform.index;
+                    if (currentCheckpointNum > highestSection) { highestSection = currentCheckpointNum; saveProgress(); }
+                    
+                    const alreadyReached = checkpointsReached.some(c => c.index === onPlatform.index);
+                    if (!alreadyReached) {
+                        checkpointsReached.push({ x: onPlatform.x + onPlatform.w / 2, y: onPlatform.y - 50, index: onPlatform.index });
+                        if (currentCheckpointNum === 4 && !badges.laserDodger) unlockBadge('laserDodger');
+                    }
+                } else {
+                     const currentPlatformListIndex = platforms.findIndex(p => p.platformId === onPlatform.platformId);
+                     const lastPlatformListIndex = platforms.findIndex(p => p.platformId === lastOnPlatformId);
+                     if (lastPlatformListIndex > -1 && currentPlatformListIndex > lastPlatformListIndex + 2 && !badges.glider) {
+                         unlockBadge('glider');
+                     }
+                }
+            }
+            
+            document.getElementById('highestSection').textContent = highestSection;
+            document.getElementById('currentSection').textContent = currentCheckpointNum;
+
+            lasers.forEach(laser => {
+                if ((laser.on === undefined || laser.on) && player.x < laser.x + laser.w && player.x + player.width > laser.x && player.y < laser.y + laser.h && player.y + player.height > laser.y) {
+                    respawnToPrevious();
+                }
+            });
+            trains.forEach(train => {
+                if (player.x < train.x + train.w && player.x + player.width > train.x && player.y < train.y + train.h && player.y + player.height > train.y) {
+                    respawnToPrevious();
+                }
+            });
+            teleportTriggers.forEach(trigger => {
+                if (player.x < trigger.x + trigger.w && player.x + player.width > trigger.x) {
+                    const targetCheckpoint = platforms.find(p => p.isCheckpoint && p.index === trigger.targetCheckpointIndex);
+                    if (targetCheckpoint) {
+                        player.x = targetCheckpoint.x + targetCheckpoint.w / 2;
+                        player.y = targetCheckpoint.y - player.height;
+                        player.vy = 0;
+                        teleportTriggers = teleportTriggers.filter(t => t !== trigger);
+                        if(trigger.targetCheckpointIndex === 5 && !badges.speedDemon) unlockBadge('speedDemon');
+                    }
+                }
+            });
+            
+            timePickups.forEach((pickup, index) => {
+                const dist = Math.hypot(pickup.x - (player.x + player.width / 2), pickup.y - (player.y + player.height / 2));
+                if (dist < pickup.radius + player.width / 2) {
+                    totalTime += 30;
+                    updateTimerDisplay();
+                    timePickups.splice(index, 1);
+                    if (!badges.peaceful) unlockBadge('peaceful');
+                }
+            });
+
+            if (player.y > canvas.height + 200) {
+                respawn();
+            }
+        }
+        
+        function unlockBadge(badgeName) {
+            if (!badges[badgeName]) {
+                badges[badgeName] = true;
+                saveProgress();
+                updateModifiersUI();
+                let message = "Badge Unlocked!";
+                if (badgeName === 'glider') message = `Badge: "Don't need to do every step"`;
+                if (badgeName === 'laserDodger') message = `Badge: "Laser Dodger"`;
+                if (badgeName === 'airTime') message = `Badge: "Air Time"`;
+                if (badgeName === 'speedDemon') message = `Badge: "Need for Speed"`;
+                if (badgeName === 'peaceful') message = `Badge: "U still got more time to go"`;
+                showNotification(message);
+            }
+        }
+        function updateCamera() {
+            const targetX = player.x - canvas.width / 4;
+            camera.x += (targetX - camera.x) * 0.1;
+        }
+
+        function respawn() {
+            if (!gameActive) return;
+            const lastCheckpoint = checkpointsReached[checkpointsReached.length - 1];
+            const checkpointNumber = lastCheckpoint.index;
+            
+            if (checkpointNumber > 0 && checkpointNumber % 7 === 0) {
+                totalTime = Math.max(0, totalTime - 120);
+                showNotification("-2 Minutes!");
+            }
+            
+            if (disappearingFloorTilesBackup.length > 0) {
+                platforms = platforms.filter(p => !p.isDisappearing);
+                platforms.push(...JSON.parse(JSON.stringify(disappearingFloorTilesBackup)));
+                if (chasingBallBackup) chasingBall = JSON.parse(JSON.stringify(chasingBallBackup));
+            }
+            
+            player.x = lastCheckpoint.x; player.y = lastCheckpoint.y;
+            player.vx = 0; player.vy = 0;
+        }
+
+        function respawnToPrevious() {
+            if (checkpointsReached.length > 1) checkpointsReached.pop();
+            respawn();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+
+            drawPlayerShape(ctx, player);
+            platforms.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.w, p.h); });
+            
+            lasers.forEach(l => {
+                if (l.isVertical) {
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    ctx.moveTo(l.shooterX - 15, l.shooterY); ctx.lineTo(l.shooterX + 15, l.shooterY); ctx.lineTo(l.shooterX, l.shooterY + 15);
+                    ctx.closePath(); ctx.fill();
+                    if (l.on) {
+                         ctx.fillStyle = l.color; ctx.fillRect(l.x, l.y, l.w, l.h); ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.fillRect(l.x - 2, l.y, l.w + 4, l.h);
+                    }
+                } else {
+                    if(l.on === undefined || l.on) { ctx.fillStyle = l.color; ctx.fillRect(l.x, l.y, l.w, l.h); ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.fillRect(l.x - 2, l.y, l.w + 4, l.h); }
+                }
+            });
+            trains.forEach(t => { ctx.fillStyle = t.color; ctx.fillRect(t.x, t.y, t.w, t.h); });
+            timePickups.forEach(p => { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); });
+
+            if (chasingBall && chasingBall.active) {
+                ctx.fillStyle = chasingBall.color; ctx.beginPath(); ctx.arc(chasingBall.x, chasingBall.y, chasingBall.radius, 0, Math.PI * 2); ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawPlayerShape(c, p) {
+            c.fillStyle = p.color;
+            const centerX = p.x + p.width / 2;
+            const centerY = p.y + p.height / 2;
+            const size = p.width * 0.8;
+            c.beginPath();
+            switch(p.shape) {
+                case 'circle': c.arc(centerX, centerY, p.width / 2, 0, Math.PI * 2); break;
+                case 'triangle': c.moveTo(centerX, centerY - size/2); c.lineTo(centerX - size/2, centerY + size/2); c.lineTo(centerX + size/2, centerY + size/2); break;
+                case 'star':
+                    c.moveTo(centerX, centerY - size/2);
+                    for (let i = 0; i < 5; i++) {
+                        c.lineTo(centerX + Math.cos((18 + i * 72) / 180 * Math.PI) * size/2, centerY - Math.sin((18 + i * 72) / 180 * Math.PI) * size/2);
+                        c.lineTo(centerX + Math.cos((54 + i * 72) / 180 * Math.PI) * size/4, centerY - Math.sin((54 + i * 72) / 180 * Math.PI) * size/4);
+                    }
+                    break;
+                case 'hexagon':
+                    for (let i = 0; i < 6; i++) c.lineTo(centerX + size/2 * Math.cos(i * 60 / 180 * Math.PI), centerY + size/2 * Math.sin(i * 60 / 180 * Math.PI));
+                    break;
+                default: c.rect(p.x, p.y, p.width, p.height); break;
+            }
+            c.closePath();
+            c.fill();
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (isPaused) return;
+            if (!gameActive) return;
+            
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            updatePlayer(deltaTime || 0);
+            updateGameObjects(deltaTime || 0);
+            updateCamera();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+    </script>
+</body>
+</html>
