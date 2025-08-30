@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japan Subway Train Match Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'BIZ UDPGothic', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .card {
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card .front, .card .back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .card .back {
+            transform: rotateY(180deg);
+        }
+        .collection-item, .level-button, .main-menu-button {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .collection-item:hover, .level-button:hover, .main-menu-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #a0a0a0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+        #train-info-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .level-button .bg-image {
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Japan Subway Train Match</h1>
+            <p class="text-lg text-gray-600 mt-2">日本地下鉄電車マッチ</p>
+        </header>
+
+        <!-- Main Menu Screen -->
+        <div id="main-menu-screen" class="text-center bg-white p-8 rounded-2xl shadow-lg">
+            <h2 class="text-3xl font-bold mb-8">Main Menu</h2>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-6">
+                <button id="play-button" class="main-menu-button w-full sm:w-48 bg-indigo-600 text-white px-6 py-3 rounded-lg text-xl font-semibold hover:bg-indigo-700 transition">Play</button>
+                <button id="collection-button" class="main-menu-button w-full sm:w-48 bg-emerald-500 text-white px-6 py-3 rounded-lg text-xl font-semibold hover:bg-emerald-600 transition">Collection</button>
+            </div>
+        </div>
+
+        <!-- City Selection Screen -->
+        <div id="city-selection-screen" class="hidden text-center bg-white p-8 rounded-2xl shadow-lg">
+             <div class="flex justify-between items-center mb-6">
+                 <h2 class="text-3xl font-bold">Select a Level</h2>
+                 <button id="back-to-main-menu-from-city" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Main Menu</button>
+            </div>
+            <div id="city-buttons" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- City buttons will be generated here -->
+            </div>
+        </div>
+        
+        <!-- Company Selection Screen -->
+        <div id="company-selection-screen" class="hidden text-center bg-white p-8 rounded-2xl shadow-lg">
+            <div class="flex justify-between items-center mb-6">
+                 <h2 id="company-selection-title" class="text-3xl font-bold">Select a Company</h2>
+                 <button id="back-to-cities-button" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Back to Cities</button>
+            </div>
+            <div id="company-buttons" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Company buttons will be generated here -->
+            </div>
+        </div>
+
+        <!-- Line Selection Screen -->
+        <div id="line-selection-screen" class="hidden text-center bg-white p-8 rounded-2xl shadow-lg">
+            <div class="flex justify-between items-center mb-6">
+                 <h2 id="line-selection-title" class="text-3xl font-bold">Select a Line</h2>
+                 <button id="back-to-companies-button" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Back to Companies</button>
+            </div>
+            <div id="line-buttons" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Line buttons will be generated here -->
+            </div>
+        </div>
+
+        <!-- Main Game Screen -->
+        <main id="game-screen" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 id="game-board-title" class="text-2xl font-semibold">Game Board</h2>
+                        <p id="current-level-info" class="text-gray-500"></p>
+                    </div>
+                    <button id="change-level-button" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors duration-300 shadow-md">Main Menu</button>
+                </div>
+                <div id="game-board" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 sm:gap-4"></div>
+                 <div id="win-message" class="hidden text-center mt-6 p-4 bg-green-100 text-green-800 rounded-lg">
+                    <p class="font-bold text-xl">Congratulations! You've collected all the trains!</p>
+                </div>
+            </div>
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4">Trains Collected This Round</h2>
+                <div id="collection-section" class="custom-scrollbar h-96 overflow-y-auto grid grid-cols-2 gap-4 p-2 bg-gray-50 rounded-lg"></div>
+            </div>
+        </main>
+
+        <!-- Collection Screen -->
+        <div id="collection-screen" class="hidden bg-white p-8 rounded-2xl shadow-lg">
+             <div class="flex justify-between items-center mb-6">
+                 <h2 class="text-3xl font-bold">My Train Collection</h2>
+                 <button id="back-to-main-menu-from-collection" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Main Menu</button>
+            </div>
+            <div id="master-collection-grid" class="custom-scrollbar grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[70vh] overflow-y-auto p-4 bg-gray-50 rounded-lg">
+                <!-- Master collection will be displayed here -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Train Info Modal -->
+    <div id="train-info-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 opacity-0">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                    <h3 id="modal-train-name" class="text-2xl font-bold mb-2">Train Name</h3>
+                    <button id="modal-close-button" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+                </div>
+                <p id="modal-train-operator" class="text-md text-gray-600 mb-4">Operator</p>
+                <div id="modal-train-images-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <!-- Train images will be dynamically inserted here -->
+                </div>
+                <p id="modal-train-description" class="text-gray-700">Description goes here.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Screen elements
+            const mainMenuScreen = document.getElementById('main-menu-screen');
+            const citySelectionScreen = document.getElementById('city-selection-screen');
+            const companySelectionScreen = document.getElementById('company-selection-screen');
+            const lineSelectionScreen = document.getElementById('line-selection-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const collectionScreen = document.getElementById('collection-screen');
+            const trainInfoModal = document.getElementById('train-info-modal');
+
+            // Button containers
+            const cityButtonsContainer = document.getElementById('city-buttons');
+            const companyButtonsContainer = document.getElementById('company-buttons');
+            const lineButtonsContainer = document.getElementById('line-buttons');
+            const masterCollectionGrid = document.getElementById('master-collection-grid');
+
+            // Game elements
+            const gameBoard = document.getElementById('game-board');
+            const collectionSection = document.getElementById('collection-section');
+            const winMessage = document.getElementById('win-message');
+            const gameBoardTitle = document.getElementById('game-board-title');
+            const currentLevelInfo = document.getElementById('current-level-info');
+
+            // Navigation buttons
+            const playButton = document.getElementById('play-button');
+            const collectionButton = document.getElementById('collection-button');
+            const changeLevelButton = document.getElementById('change-level-button');
+            const backToCitiesButton = document.getElementById('back-to-cities-button');
+            const backToCompaniesButton = document.getElementById('back-to-companies-button');
+            const backToMainMenuFromCity = document.getElementById('back-to-main-menu-from-city');
+            const backToMainMenuFromCollection = document.getElementById('back-to-main-menu-from-collection');
+            const modalCloseButton = document.getElementById('modal-close-button');
+
+            const levels = {
+                "Tokyo": {
+                    type: "select_company",
+                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Asakusa-Line_Series5500-5503.jpg/1200px-Asakusa-Line_Series5500-5503.jpg",
+                    companies: {
+                        "Tokyo Metro": {
+                            type: "match_lines",
+                            difficulty: "Hard",
+                            imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Tokyo_Metro_logo.svg/2048px-Tokyo_Metro_logo.svg.png",
+                            lines: {
+                                "Ginza Line": { color: "bg-orange-400", hex: "f97316", trains: [{name: "1000 series", cardImageUrl: "https://ih1.redbubble.net/image.2402820739.0758/pp,504x498-pad,600x600,f8f8f8.jpg", collectionImageUrls: ["https://d1c4d7gnm6as1q.cloudfront.net/Pictures/2000xAny/2/0/6/29206_jpshibuyafirsttrainarrives_7798an_870263_crop.jpg"], description: "In service since 2012, the 1000 series is a 6-car train that uses a Permanent Magnet Synchronous Motor (PMSM). It's known for its retro exterior design, reminiscent of the original 1000 series from 1927."}] },
+                                "Marunouchi Line": { color: "bg-red-600", hex: "dc2626", trains: [{name: "2000 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Marunouchi_Line_2000_Front_20190224.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Tokyo-Metro_Series2000-2026.jpg/1280px-Tokyo-Metro_Series2000-2026.jpg"], description: "Introduced in 2019, the 2000 series is a 6-car train with a PMSM inverter. It features a distinctive red body with a silver wave pattern, and is known for its round windows."}, {name: "02 series", cardImageUrl: "https://i.pinimg.com/736x/af/35/c3/af35c361c65a7baa03c87e8d7ecb1d04.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/1/16/Tokyo-Metro_Series02-653.jpg"], description: "In service since 1988, the 02 series is a 6-car train that has been updated with IGBT-VVVF inverters. It has been a workhorse on the Marunouchi Line for decades."}] },
+                                "Hibiya Line": { color: "bg-gray-400", hex: "9ca3af", trains: [{name: "13000 series", cardImageUrl: "https://transphoto.org/photo/17/97/17/1797171.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tokyo-Metro-Series13000-13111.jpg/1200px-Tokyo-Metro-Series13000-13111.jpg"], description: "In service since 2017, the 13000 series is a 7-car train with a PMSM inverter. It was introduced to standardize door positions on the line and also serves the Tobu Skytree Line."}] },
+                                "Tōzai Line": { color: "bg-sky-400", hex: "38bdf8", trains: [{name: "15000 series", cardImageUrl: "https://thumb.photo-ac.com/f2/f29b38bdf0b1bbdba940b7f80a361c03_t.jpeg", collectionImageUrls: ["https://css.trainspo.com/uploads/photos/1024/15-24592v0_20120417.jpg"], description: "In service since 2010, the 15000 series is a 10-car train with an IGBT-VVVF inverter. It was designed with wide doors to ease congestion and also serves the JR Chuo-Sobu Line and Toyo Rapid Railway Line."}, {name: "05 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tokyo_Metro_05-114F_Renewal_type.JPG/2560px-Tokyo_Metro_05-114F_Renewal_type.JPG", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/0/03/Tokyo_Metro_05_2023.jpg/revision/latest?cb=20250322012851"], description: "In service since 1988, the 05 series is a 10-car train with various inverter types, including GTO and IGBT-VVVF. It has many different front-end designs due to its long production run."}] },
+                                "Chiyoda Line": { color: "bg-green-700", hex: "15803d", trains: [{name: "16000 series", cardImageUrl: "https://cdn2.picryl.com/photo/2011/07/10/16000-kurihira-ae5fa2-640.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/2/2d/Tokyo_Metro_16000_Series_16108F.jpg"], description: "In service since 2010, the 16000 series is a 10-car train with a PMSM inverter. It's known for its quiet operation and through-service to the JR Joban Line and Odakyu Odawara Line."}] },
+                                "Yūrakuchō Line": { color: "bg-yellow-400", hex: "facc15", trains: [{name: "17000 series", cardImageUrl: "https://thumb.photo-ac.com/a7/a7e5ec3a91159c643a868b786c9eda81_t.jpeg", collectionImageUrls: ["https://d1c4d7gnm6as1q.cloudfront.net/Pictures/2000xAny/4/8/4/39484_tokyo_metro_17000_17102f_in_fujimino_station_01_740212.jpg"], description: "Introduced in 2021, the 17000 series is a 10-car train with a PMSM inverter. It also serves the Fukutoshin Line, Tobu Tojo Line, and Seibu Ikebukuro Line."}] },
+                                "Hanzōmon Line": { color: "bg-purple-500", hex: "a855f7", trains: [{name: "18000 series", cardImageUrl: "https://cdn.mainichi.jp/vol1/2021/06/03/20210603p2a00m0bu006000p/8.jpg?2", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/c/cc/Tokyo_Metro_Series_18000_18102F_in_Eda_Station.jpg"], description: "In service since 2021, the 18000 series is a 10-car train with a PMSM inverter. It features a distinctive purple design and runs through to the Tokyu Den-en-toshi Line and Tobu Skytree Line."}, {name: "8000 series", cardImageUrl: "https://i.ytimg.com/vi/iLHcHw-vXVA/maxresdefault.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Tokyo_Metro_8000_series_Tokyu_DT_Line_20180601.jpg/1013px-Tokyo_Metro_8000_series_Tokyu_DT_Line_20180601.jpg"], description: "In service since 1981, the 8000 series is a 10-car train, originally with chopper control, later upgraded to IGBT-VVVF. It has been the primary train on the Hanzomon Line for many years."}] },
+                                "Namboku Line": { color: "bg-emerald-500", hex: "10b981", trains: [{name: "9000 series", cardImageUrl: "https://funini.com/train/tokyo/metro/metro9000/05full.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/1/18/TokyoMetro9000.JPG"], description: "In service since 1991, the 9000 series is a 6-car train (some are being converted to 8-car sets) with GTO and IGBT-VVVF inverters. It runs through to the Tokyu Meguro Line and Saitama Railway Line."}] },
+                            }
+                        },
+                        "Toei Subway": {
+                            type: "select_line",
+                            difficulty: "Varies",
+                            imageUrl: "https://static.wikia.nocookie.net/locomotive/images/8/89/Toei_Logo.png/revision/latest?cb=20180329063150",
+                            lines: {
+                               "Asakusa Line": {
+                                   type: "match_trains",
+                                   difficulty: "Expert",
+                                   imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Asakusa-Line_Series5500-5503.jpg/960px-Asakusa-Line_Series5500-5503.jpg",
+                                   trains: [
+                                       { name: "5500 series", operator: "Toei", color: "bg-rose-500", hex: "f43f5e", cardImageUrl: "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/79cf213d-5ecd-4bc6-ab20-d03239671c12/dia4yhr-ba2fc34d-8235-4123-97c9-d5dfed63a27d.png/v1/fill/w_800,h_1050,q_80,strp/toei_5500_series__2024_resized__by_john419rdi_dia4yhr-fullview.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9MTA1MCIsInBhdGgiOiJcL2ZcLzc5Y2YyMTNkLTVlY2QtNGJjNi1hYjIwLWQwMzIzOTY3MWMxMlwvZGlhNHloci1iYTJmYzM0ZC04MjM1LTQxMjMtOTdjOS1kNWRmZWQ2M2EyN2QucG5nIiwid2lkdGgiOiI8PTgwMCJ9XV0sImF1ZCI6WyJ1cm46c2VydmljZTppbWFnZS5vcGVyYXRpb25zIl19.T_UI7uiw0xw9DcPD_p8uM_TmH3nOIXGbJePATOkp5U8", collectionImageUrls: ["https://i.ytimg.com/vi/OdlDgOClwTU/maxresdefault.jpg"], description: "In service since 2018, the 5500 series is an 8-car train with an IGBT-VVVF inverter. It serves the Asakusa Line and provides through-services to the Keikyu, Keisei, and Hokuso lines." },
+                                       { name: "1500 series", operator: "Keikyu", color: "bg-red-600", hex: "dc2626", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Keikyu_series1500%281718%29.jpg/1280px-Keikyu_series1500%281718%29.jpg", collectionImageUrls: ["https://live.staticflickr.com/4518/24959259508_4132d1eb6c.jpg"], description: "In service since 1985, the 1500 series is a versatile train that runs in 4, 6, and 8-car formations. It uses a mix of GTO and IGBT-VVVF inverters and serves the Keikyu lines, with through-services to the Asakusa Line." },
+                                       { name: "600 series", operator: "Keikyu", color: "bg-red-600", hex: "dc2626", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/7/7a/Keikyu_600_series_608_formation.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/7/7a/Keikyu_600_series_608_formation.jpg", "https://upload.wikimedia.org/wikipedia/commons/f/fb/Keikyu_600_Series_%28Blue_Sky_Train%29.jpg"], description: "In service since 1994, the 600 series runs in 4 and 8-car sets with a GTO-VVVF inverter. It serves the Keikyu lines and through-runs to the Asakusa, Keisei, and Hokuso lines." },
+                                       { name: "N1000 series", operator: "Keikyu", color: "bg-red-600", hex: "dc2626", cardImageUrl: "https://static.wikia.nocookie.net/locomotive/images/4/43/Keikyu_N1000_2025.jpg/revision/latest/smart/width/250/height/250?cb=20250727124355", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/KEIKYU_N1000_SERIES_1367-_20180818.jpg/1200px-KEIKYU_N1000_SERIES_1367-_20180818.jpg", "https://upload.wikimedia.org/wikipedia/commons/a/ae/Keikyu_N1000_Series_1033F_Rapid_Sakura_20190413.jpg", "https://upload.wikimedia.org/wikipedia/commons/3/3e/Keikyu_Series_1000_1057F_YELLOW_HAPPY_TRAIN_in_Keisei-Funabashi_Station.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Keikyu-n1000-blue-20050313.jpg/250px-Keikyu-n1000-blue-20050313.jpg", "https://i.namu.wiki/i/2nxhgiygE6dNf2Z555DzEqhbUVefJPckQA7v4gmW-K2J7BnrlmkcjIX0EWOq0ynsmr_BS-CqSaeDQ8lQRE86QQ.webp"], description: "In service since 2002, the N1000 series is Keikyu's most numerous train type, running in 4, 6, and 8-car sets. It uses a variety of inverters (GTO, IGBT, MOSFET) and serves all Keikyu lines, with extensive through-services." },
+                                       { name: "3000 series", operator: "Keisei", color: "bg-blue-600", hex: "2563eb", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/9/9c/Keisei-3000-2-3001.jpg", collectionImageUrls: ["https://i.ytimg.com/vi/R6J_K8PVpiQ/hq720.jpg?sqp=-oaymwE7CK4FEIIDSFryq4qpAy0IARUAAAAAGAElAADIQj0AgKJD8AEB-AH-CYAC0AWKAgwIABABGGogaihqMA8=&rs=AOn4CLAavG0eDT-Xyz6GM5zGuU4QliPN8g"], description: "In service since 2003, the 3000 series runs in 6 and 8-car formations with an IGBT-VVVF inverter. It serves the Keisei lines and provides through-services to the Asakusa, Keikyu, and Hokuso lines." },
+                                       { name: "3050 series", operator: "Keisei", color: "bg-blue-600", hex: "2563eb", cardImageUrl: "https://live.staticflickr.com/8220/8264157878_71c54521b0_z.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Keisei-Type3050-3056.jpg/2560px-Keisei-Type3050-3056.jpg"], description: "A variant of the 3000 series, the 3050 series entered service in 2010. It is an 8-car train with an IGBT-VVVF inverter, primarily used on the Narita Sky Access Line and through-services." },
+                                       { name: "3100 series", operator: "Keisei", color: "bg-blue-600", hex: "2563eb", cardImageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTedGAiVkufjv_7ebo5I2EH9MIat4IMozf0Zw&s", collectionImageUrls: ["https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEie8X7XlaevEjnE2PyIBG5SV4GNbqAshDO1PQOn3CAKEH7W2vAFzfghxCpmjSzCA_oakMAaPQIXdCopmZV1QnAsNYCFjgZzxl7GAWRpdEw1okZZni9g37ZzYmdefWtWujHgxCMyAzfo4o4BRj6AzPxjkSmFSmA5BzhqNgBMs-LM9T8FQQxWihi7eC7ae4V_/s16000/3157.JPG"], description: "In service since 2019, the 3100 series is an 8-car train with a SiC-VVVF inverter. It's known for its orange livery and primarily serves the Narita Sky Access Line and its through-service partners." },
+                                       { name: "3400 series", operator: "Keisei", color: "bg-blue-600", hex: "2563eb", cardImageUrl: "https://cdn.suruga-ya.com/database/pics_webp/game/600024466.jpg.webp", collectionImageUrls: ["https://i.ytimg.com/vi/K6U24BKo750/maxresdefault.jpg"], description: "In service since 1993, the 3400 series is an 8-car train that uses chopper control. It was built using recycled components from the original AE series Skyliner trains." },
+                                       { name: "3700 series", operator: "Keisei", color: "bg-blue-600", hex: "2563eb", cardImageUrl: "https://2nd-train.net/files/topics/2024/02/27/c58241a0a3347f6402dbfa20ee69045f950729d9_z.jpg", collectionImageUrls: ["https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiY536KEefTX67SOCVxUEXTvTBHcLiN9L6wlULmPVHSmeBWWMCcEHh3ns9-vz15Do_wBnk4tqqSqOp4JkzIyTi8qn6tDj4-buQS2TjULtso1kgy87ImIq1NU7c9Jd_LnHmh8axf87FWRX0/"], description: "In service since 1991, the 3700 series is a versatile train that runs in 6 and 8-car sets with a GTO-VVVF inverter. It serves a wide range of lines through inter-running services." },
+                                       { name: "7300 series", operator: "Hokuso", color: "bg-sky-600", hex: "0284c7", cardImageUrl: "https://thumb.photo-ac.com/e8/e865ad99074e45924c729fff02d05266_t.jpeg", collectionImageUrls: ["https://funini.com/train/tokyo/hokuso/hokuso7300/04full.jpg"], description: "In service since 1992, the 7300 series is an 8-car train based on the Keisei 3700 series. It serves the Hokuso Line and its through-service partners." },
+                                       { name: "7500 series", operator: "Hokuso", color: "bg-sky-600", hex: "0284c7", cardImageUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgmwOmh19b3Rs25_W3QVoYK_GcSt5KaWRFOubv_AYJO7p0UGvN_g1Z1CebQ1uoxjSd1315OhJfS-vSPnVQZosRKuczTVbjHemvyYtHPtXp32P6Fl6vIG_g8CjFKOazoyNtNOc9TnNU_5Jg/w1200-h630-p-k-no-nu/20180523Hokuso640a.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/6/68/Hokuso-Series7501.jpg"], description: "In service since 2006, the 7500 series is an 8-car train based on the Keisei 3000 series. It is a key train for services on the Hokuso Line." },
+                                       { name: "9100 series", operator: "Chiba NT", color: "bg-teal-500", hex: "14b8a6", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/8/86/Model_9100_of_Chiba_Newtown_Railway.jpg", collectionImageUrls: ["https://raillab.jp/img/user/train_photo/11697_466993/680.jpg"], description: "In service since 1994, the 9100 series 'C-Flyer' is an 8-car train with a GTO-VVVF inverter. It is known for its unique design and serves the Hokuso Line and its partners." },
+                                       { name: "9200 series", operator: "Chiba NT", color: "bg-teal-500", hex: "14b8a6", cardImageUrl: "https://train-directory.net/files/2022/05/01/ed775c397d38d06bbff3542384f1a51ac31aa36c_a.jpg", collectionImageUrls: ["https://bosoview.sakura.ne.jp/railroad/hokuso/9200/20141124_31n_9201_4b.jpg"], description: "In service since 2013, the 9200 series is an 8-car train based on the Keisei 3000 series. It was introduced to replace the older 9000 series trains." },
+                                       { name: "9800 series", operator: "Chiba NT", color: "bg-teal-500", hex: "14b8a6", cardImageUrl: "https://raillab.jp/img/user/train_photo/1899_12370/680.jpg", collectionImageUrls: ["https://raillab.jp/img/user/train_photo/12310_417085/680.jpg"], description: "In service since 2017, the 9800 series is an 8-car train that was converted from a Keisei 3700 series set. It replaced the original 9000 series." },
+                                   ]
+                               },
+                                "Other Toei Lines": { 
+                                    type: "match_trains",
+                                    difficulty: "Hard",
+                                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Toei_Shinjuku_Line.JPG",
+                                    trains: [
+                                        { name: "6500 series", operator: "Toei (Mita)", color: "bg-blue-800", hex: "1e40af", cardImageUrl: "https://images.steamusercontent.com/ugc/2332370043922145092/23E2C216251A9CF2246810AE9F817EAA8024F473/?imw=512&&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false", collectionImageUrls: ["https://d1c4d7gnm6as1q.cloudfront.net/Pictures/2000xAny/8/1/6/49816_tokyometropolitanbureauoftransportationtoeisubwaymitalineseries6500trainsetsphotorsaccbysa30_101866_crop.jpg"], description: "In service since 2022, the 6500 series is an 8-car train with an IGBT-VVVF inverter. It was introduced to replace the older 6300 series trains." },
+                                        { name: "6300 series", operator: "Toei (Mita)", color: "bg-blue-800", hex: "1e40af", cardImageUrl: "https://raillab.jp/img/user/train_photo/1079_73094/680.jpg", collectionImageUrls: ["https://css.trainspo.com/uploads/photos/1024/15-25719v0_20120524.jpg"], description: "In service since 1993, the 6300 series is a 6-car train with an IGBT-VVVF inverter. It has been the main train on the Mita Line for many years." },
+                                        { name: "10-300 series", operator: "Toei (Shinjuku)", color: "bg-lime-500", hex: "84cc16", cardImageUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh_0gz1LAPRmLaCQJKBVvd1b5NxBZ-Hanop_QPlAoYDxiGVw9Rx77EV8eKiXjMmatKQl_1wfMlP5aZLi4x_O2f8djZXyoqLbJBHtd9mz_6T6DMU0zDjAHU7YnNPlHXk_C4vMlR_EAnB_Rc/", collectionImageUrls: ["https://thumb.photo-ac.com/4c/4c949af0706ed3e9a0baf3bfa760a5e0_t.jpeg"], description: "In service since 2005, the 10-300 series is a 10-car train with an IGBT-VVVF inverter. It is the primary train for the Shinjuku Line and its through-services to the Keio Line." },
+                                        { name: "12-600 series", operator: "Toei (Oedo)", color: "bg-fuchsia-700", hex: "a21caf", cardImageUrl: "https://image.space.rakuten.co.jp/d/strg/ctrl/2/7d8a1a6b9fd3b55dda69705b620fd5f0675f5b8f.73.2.2.2.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/6/6c/Toei-subway12-600.jpg", "https://upload.wikimedia.org/wikipedia/commons/9/9d/Toei_12-600%28Batch_3%29_69F.jpg"], description: "In service since 2012, the 12-600 series is an 8-car train with an IGBT-VVVF inverter. It was introduced to supplement the existing 12-000 series fleet on the Oedo Line." }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "Osaka": {
+                    type: "match_lines",
+                    difficulty: "Hard",
+                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/1/12/Osaka_Metro_400_Series_409-02.jpg",
+                    lines: {
+                        "Midōsuji Line": { color: "bg-red-700", hex: "b91c1c", trains: [{name: "30000 series", cardImageUrl: "https://thumb.photo-ac.com/15/15029b5bd2301b12a5c7d1f2b05b4f72_t.jpeg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/5/5a/Osaka_Metro_30000_2022.jpg/revision/latest/scale-to-width-down/1200?cb=20220110095408"], description: "In service since 2011, the 30000 series is a 10-car train with an IGBT-VVVF inverter. It's a modern train designed for high-capacity service on the busy Midosuji Line."}, {name: "21 series", cardImageUrl: "https://lh3.googleusercontent.com/proxy/IY_y17oLvfKdjaAHPzZ2eoNkMjUNZ10hkBeG2adoo-8I612WFiwKXeq16HqomI43lXIpQxbHPJRZc-MwJafyWRHX_u8-YIL24n1g0-NQGqBWp7rssiMbtg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/Osaka_Metro_21_series_21617F_%28renewal%29_at_Momoyamadai.jpg/960px-Osaka_Metro_21_series_21617F_%28renewal%29_at_Momoyamadai.jpg?20201027072404"], description: "In service since 1991, the 21 series is a 10-car train that has been refurbished with IGBT-VVVF inverters. It has been a long-standing workhorse of the Midosuji Line."}] },
+                        "Tanimachi Line": { color: "bg-purple-600", hex: "9333ea", trains: [{name: "22 series", cardImageUrl: "https://transphoto.org/photo/18/90/39/1890394.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Osaka_Metro_Series_22_22651F.jpg/1280px-Osaka_Metro_Series_22_22651F.jpg"], description: "In service since 1990, the 22 series is a 6-car train with an IGBT-VVVF inverter. It is one of the main train types used on the Tanimachi Line."}, {name: "30000 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/b/bf/Osaka_Subway_30000_series002.JPG", collectionImageUrls: ["https://raillab.jp/img/user/train_photo/1289_8742/680.jpg"], description: "A variant of the Midosuji Line version, this 30000 series for the Tanimachi Line entered service in 2009. It's a 6-car train with an IGBT-VVVF inverter."}] },
+                        "Yotsubashi Line": { color: "bg-blue-600", hex: "2563eb", trains: [{name: "23 series", cardImageUrl: "https://pic.k-cdn.media/metronine/images/special/osakafinder01-chapter03-img11.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/%E5%A4%A7%E9%98%AA%E3%83%A1%E3%83%88%E3%83%AD%E5%9B%9B%E3%81%A4%E6%A9%8B%E7%B7%9A23018%E7%B3%BB.jpg/960px-%E5%A4%A7%E9%98%AA%E3%83%A1%E3%83%88%E3%83%AD%E5%9B%9B%E3%81%A4%E6%A9%8B%E7%B7%9A23018%E7%B3%BB.jpg"], description: "In service since 1990, the 23 series is a 6-car train with an IGBT-VVVF inverter, easily recognizable by its blue livery for the Yotsubashi Line."}] },
+                        "Chūō Line": { color: "bg-green-600", hex: "16a34a", trains: [{name: "400 series", cardImageUrl: "https://jnsforum.s3.amazonaws.com/monthly_2023_06/400.png.f92254af8286973211c676ec28fbaf54.png", collectionImageUrls: ["https://i.namu.wiki/i/dRZneritZmkKOp7ISFqOQsKHhHAZbPc8W9aEResXdSLIZAqcTiRO3kKxV9Hz2YD0zvohGsSW06YH4nNu8n463g.webp"], description: "Introduced in 2023, the 400 series is a futuristic 6-car train with a PMSM inverter. It was designed for the 2025 World Expo and also serves the Kintetsu Keihanna Line."}, {name: "30000A series", cardImageUrl: "https://thumb.photo-ac.com/f1/f1c9f6793f7593cfedbffb9d7ca2eda6_t.jpeg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/a/ab/Osaka_Metro_30000A_Series_32651F_set.jpg"], description: "In service since 2022, the 30000A series is a 6-car train with an IGBT-VVVF inverter. It was introduced to increase capacity on the Chuo Line and also serves the Kintetsu Keihanna Line."}] },
+                        "Sennichimae Line": { color: "bg-pink-500", hex: "ec4899", trains: [{name: "25 series", cardImageUrl: "https://stat.ameba.jp/user_images/20200131/21/junjun522/6f/38/j/o4264321614705514052.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Osaka_Subway_25_series_25604F_2013-12-28_%2814175294486%29.jpg/2560px-Osaka_Subway_25_series_25604F_2013-12-28_%2814175294486%29.jpg"], description: "In service since 1991, the 25 series is a 4-car train with an IGBT-VVVF inverter. It is the primary train type for the Sennichimae Line."}] },
+                        "Keihanna Line": { color: "bg-lime-600", hex: "65a30d", trains: [{name: "7000 series", cardImageUrl: "https://thumb.photo-ac.com/5e/5e6f433da312e27f100aa100203c6464_t.jpeg", collectionImageUrls: ["https://lh3.googleusercontent.com/proxy/7VRhOw0i6rLMuI-glQys5zO4miatAbD59Y79xYO8n0AA5esQ531xw7YXHIuCa_nGtkK6EruwQS9egJye01F4S0LTJMABGnocOcz_uxXwveslyCLyOddG5y0"], description: "In service since 1986, the Kintetsu 7000 series is a 6-car train that uses GTO and IGBT inverters. It operates on the Keihanna Line and through to the Osaka Metro Chuo Line."}, {name: "7020 series", cardImageUrl: "https://train-littlelibrary.com/wp-content/uploads/2021/08/E9OBnCIVgAQRdJJ.jpg", collectionImageUrls: ["https://thumb.photo-ac.com/5e/5e6f433da312e27f100aa100203c6464_t.jpeg"], description: "In service since 2004, the Kintetsu 7020 series is a 6-car train with an IGBT-VVVF inverter. It was introduced to supplement the 7000 series on the Keihanna and Chuo Lines."}]},
+                        "Sakaisuji Line": { color: "bg-yellow-700", hex: "a16207", trains: [{name: "66 series", cardImageUrl: "https://transphoto.org/photo/20/36/75/2036753_s.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Osaka_Metro_66_Series_66602F_at_Nippombashi.jpg/1200px-Osaka_Metro_66_Series_66602F_at_Nippombashi.jpg"], description: "In service since 1990, the 66 series is an 8-car train with an IGBT-VVVF inverter. It serves the Sakaisuji Line and provides through-service to the Hankyu Senri and Kyoto Main Lines."}]},
+                        "Nagahori Tsurumi-ryokuchi Line": { color: "bg-yellow-300", hex: "fde047", trains: [{name: "70 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/9/9c/Osaka-municipal-subway-70.jpg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/6/65/Osaka_Metro_70_15_Taish%C5%8D_2018.jpg/revision/latest?cb=20180726235631"], description: "In service since 1990, the 70 series is a 4-car linear motor train with a GTO-VVVF inverter. It is the original train type for the Nagahori Tsurumi-ryokuchi Line."}]},
+                        "Imazatosuji Line": { color: "bg-orange-400", hex: "fb923c", trains: [{name: "80 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/f/fb/Osaka_subway_80.jpg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/4/4b/Osaka_Metro_80_2020.jpg/revision/latest?cb=20220109092347"], description: "In service since 2006, the 80 series is a 4-car linear motor train with an IGBT-VVVF inverter, designed specifically for the Imazatosuji Line."}]}
+                    }
+                },
+                "Kyoto": {
+                    type: "match_lines",
+                    difficulty: "Easy",
+                    imageUrl: "https://i.ytimg.com/vi/LmcxrayPVLE/mqdefault.jpg",
+                    lines: {
+                        "Karasuma Line": { color: "bg-green-500", hex: "22c55e", trains: [{name: "10 series", cardImageUrl: "https://www.jametro.or.jp/en/images/japan/kyoto/img01.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Kyoto_Subway_series_10_batch_1_and_6.JPG/1280px-Kyoto_Subway_series_10_batch_1_and_6.JPG"], description: "In service since 1981, the 10 series is a 6-car train that has been a workhorse on the Karasuma Line for decades. It also provides through-service to the Kintetsu Kyoto Line."}, {name: "20 series", cardImageUrl: "https://blog-imgs-149.fc2.com/2/0/7/207s5421m/20211014182905ece.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/e/e3/Kyoto_subway_20_series_unit_31_20220506_Takeda.jpg"], description: "Introduced in 2022, the 20 series is a modern 6-car train with a hybrid SiC-IGBT inverter. It was brought in to replace the older 10 series trains and also runs on the Kintetsu Kyoto and Nara Lines."}] },
+                        "Tōzai Line": { color: "bg-red-500", hex: "ef4444", trains: [{name: "50 series", cardImageUrl: "https://d3bbatwdaufxg9.cloudfront.net/content/1014/5638/4031/vg_tozai_train.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/b/b1/Kyoto_Subway_50_series.jpg"], description: "In service since 1997, the 50 series is a 6-car train with a VVVF inverter. It is specially designed with a smaller body to fit the tunnels of the Tozai Line."}] }
+                    }
+                },
+                "Fukuoka": {
+                    type: "match_lines",
+                    difficulty: "Medium",
+                    imageUrl: "https://static.wikia.nocookie.net/locomotive/images/2/2b/Fukuoka_3000A_2025.jpg/revision/latest?cb=20250525024053",
+                    lines: {
+                        "Kūkō Line": { color: "bg-orange-500", hex: "f97316", trains: [{name: "1000N series", cardImageUrl: "https://i.namu.wiki/i/pLu-I9zWyN91TXg3uAaRCLkVuGespPZdCNBF4joE9dM3XVIWobOu2iANxsXB9xUuVLE1huaC2mbm8ye9ka0YiA.webp", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Fukuoka-City-Subway-Series1000-10F.jpg/1200px-Fukuoka-City-Subway-Series1000-10F.jpg"], description: "In service since 1981, the 1000N series is a 6-car train with chopper control. It's a long-serving train on the Kuko and Hakozaki lines, with through service to the JR Chikuhi Line." }, {name: "2000N series", cardImageUrl: "https://i0.wp.com/www.fukuoka-now.com/wp-content/uploads/2024/09/fnn_subway-hakata-sta_2024_WEB.jpeg?resize=1400%2C1050&ssl=1", collectionImageUrls: ["https://dynamic-media-cdn.tripadvisor.com/media/photo-o/15/03/ee/f8/20181010080800-largejpg.jpg?w=900&h=500&s=1"], description: "Introduced in 1992, the 2000N series is a 6-car train with a GTO-VVVF inverter, providing a more modern ride on the Kuko and Hakozaki lines."}] },
+                        "Hakozaki Line": { color: "bg-blue-500", hex: "3b82f6", trains: [{name: "1000N series", cardImageUrl: "https://i.namu.wiki/i/pLu-I9zWyN91TXg3uAaRCLkVuGespPZdCNBF4joE9dM3XVIWobOu2iANxsXB9xUuVLE1huaC2mbm8ye9ka0YiA.webp", collectionImageUrls: ["https://i.namu.wiki/i/pLu-I9zWyN91TXg3uAaRCLkVuGespPZdCNBF4joE9dM3XVIWobOu2iANxsXB9xUuVLE1huaC2mbm8ye9ka0YiA.webp"], description: "In service since 1981, the 1000N series is a 6-car train with chopper control. It's a long-serving train on the Kuko and Hakozaki lines, with through service to the JR Chikuhi Line." }, {name: "2000N series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/%E7%A6%8F%E5%B2%A1%E5%B8%82%E4%BA%A4%E9%80%9A%E5%B1%802000%E7%B3%BB%EF%BC%88%E8%B2%9D%E5%A1%9A%E9%A7%85%EF%BC%89.jpg/1200px-%E7%A6%8F%E5%B2%A1%E5%B8%82%E4%BA%A4%E9%80%9A%E5%B1%802000%E7%B3%BB%EF%BC%88%E8%B2%9D%E5%A1%9A%E9%A7%85%EF%BC%89.jpg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/2/24/Fukuoka_2000_2024.jpg/revision/latest?cb=20250721025814"], description: "Introduced in 1992, the 2000N series is a 6-car train with a GTO-VVVF inverter, providing a more modern ride on the Kuko and Hakozaki lines."}] },
+                        "Nanakuma Line": { color: "bg-green-500", hex: "22c55e", trains: [{name: "3000 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Fukuoka_Subway_3000%E7%B3%BB_Front.jpg/1200px-Fukuoka_Subway_3000%E7%B3%BB_Front.jpg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/0/0c/Fukuoka_3000_2025.jpg/revision/latest?cb=20250525023413"], description: "In service since 2005, the 3000 series is a 4-car linear motor train with an IGBT-VVVF inverter, designed for the smaller tunnels of the Nanakuma Line."}] }
+                    }
+                },
+                "Kobe": {
+                    type: "match_lines",
+                    difficulty: "Medium",
+                    imageUrl: "https://www.japan-accessible.com/transport/image/kobemetro.jpg",
+                    lines: {
+                        "Seishin-Yamate Line": { color: "bg-green-600", hex: "16a34a", trains: [{name: "6000 series", cardImageUrl: "https://onb-cdn.b-cdn.net/images-stn-japan/news/n96-Kobe-6000-Series-Subway-Train1.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/0/00/Kobe_Subway_6640_at_Seishin-minami_Station.jpg"], description: "In service since 2019, the 6000 series is a 6-car train with an IGBT-VVVF inverter, introduced to replace all older trains on the Seishin-Yamate Line." }] },
+                        "Kaigan Line": { color: "bg-blue-400", hex: "60a5fa", trains: [{name: "5000 series", cardImageUrl: "https://funini.com/train/kansai/kobe_metro/kobe5000/00full.jpg", collectionImageUrls: ["https://blog-imgs-123.fc2.com/k/o/b/kobekeizai/20181219232952293.png"], description: "In service since 2001, the 5000 series is a 4-car linear motor train with an IGBT-VVVF inverter, operating on the Kaigan Line."}] }
+                    }
+                },
+                 "Sendai": {
+                    type: "match_lines",
+                    difficulty: "Easy",
+                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Transportation_Bureau_City_of_Sendai_3000_Series_3131F_set.jpg/960px-Transportation_Bureau_City_of_Sendai_3000_Series_3131F_set.jpg",
+                    lines: {
+                        "Namboku Line": { color: "bg-green-400", hex: "4ade80", trains: [{name: "1000N series", cardImageUrl: "https://i.ytimg.com/vi/pj1OkgZYkK0/maxresdefault.jpg?sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AHUBoAC4AOKAgwIABABGGUgYShZMA8=&rs=AOn4CLAKhDzlit1Vs8aTXd5_70kgvLKF0Q", collectionImageUrls: ["https://i.namu.wiki/i/JvIFnIrepXyFayRoEx6dacO4yT5UNaTGiPsWccLh0AcqiQqKqOXkZ_7xxgl5klr6XyzTV8ofXschmBpCSykwjw.webp"], description: "In service since 1987, the 1000N series is a 4-car train with chopper control, which has been modernized over the years. It is the sole train type on the Namboku Line." }] },
+                        "Tōzai Line": { color: "bg-sky-400", hex: "38bdf8", trains: [{name: "2000 series", cardImageUrl: "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/79cf213d-5ecd-4bc6-ab20-d03239671c12/diszamv-611c76a9-7b1f-4abf-b248-64f934ebc228.png/v1/fill/w_600,h_814,q_80,strp/sendai_subway_2000_series_by_john419rdi_diszamv-fullview.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9ODE0IiwicGF0aCI6IlwvZlwvNzljZjIxM2QtNWVjZC00YmM2LWFiMjAtZDAzMjM5NjcxYzEyXC9kaXN6YW12LTYxMWM3NmE5LTdiMWYtNGFiZi1iMjQ4LTY0ZjkzNGViYzIyOC5wbmciLCJ3aWR0aCI6Ijw9NjAwIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmltYWdlLm9wZXJhdGlvbnMiXX0.l5xyah2U1JmW69ASJDhxoCZPhGDLfeB6cXmFBLYnGhY", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/7/78/Sendai-Tozai-Line_Series2000-2513.jpg"], description: "Introduced in 2015, the 2000 series is a 4-car linear motor train with an IGBT-VVVF inverter, built for the opening of the Tozai Line."}] }
+                    }
+                },
+                "Yokohama": {
+                    type: "match_lines",
+                    difficulty: "Medium",
+                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/29/Yokohama-City-Subway_Type3000A_3000R.jpg",
+                    lines: {
+                        "Blue Line": { color: "bg-blue-500", hex: "3b82f6", trains: [{name: "3000 series", cardImageUrl: "https://i.redd.it/dzpx2udgbz4b1.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Yokohama_Subway_3000R_series_3426F_20191024.jpg/1200px-Yokohama_Subway_3000R_series_3426F_20191024.jpg"], description: "In service since 1992, the 3000 series is a 6-car train with multiple variants (A, N, R, S, V) and IGBT-VVVF inverters. It's the main fleet of the Blue Line."}, {name: "4000 series", cardImageUrl: "https://2nd-train.net/files/topics/2024/03/21/38d130f64862639746683363cd37d0ba569b984f_z.jpg", collectionImageUrls: ["https://d1c4d7gnm6as1q.cloudfront.net/Pictures/2000xAny/6/4/7/48647_jpyokohamaseries40001kmiura_160280.jpg"], description: "In service since 2022, the 4000 series is a modern 6-car train introduced to replace older 3000 series sets."}] },
+                        "Green Line": { color: "bg-green-500", hex: "22c55e", trains: [{name: "10000 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Model_10000_of_Yokohama_City_Transportation_Bureau.jpg/250px-Model_10000_of_Yokohama_City_Transportation_Bureau.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Yokohama-municipal-subway-10000-5th-unit-20080409.jpg/1024px-Yokohama-municipal-subway-10000-5th-unit-20080409.jpg"], description: "In service since 2008, the 10000 series is a 4-car linear motor train with an IGBT-VVVF inverter, built for the opening of the Green Line."}] }
+                    }
+                },
+                "Nagoya": {
+                    type: "match_lines",
+                    difficulty: "Hard",
+                    imageUrl: "https://i.namu.wiki/i/hMb5i94b5YU2E6Wznvra-8S8dcZY2wR2kc1A-EGsdgSoHgRUMBknQtI0pZCUb1BQYsTR7uaqaf5YuDwVp7ZiMQ.webp",
+                    lines: {
+                        "Higashiyama Line": { color: "bg-yellow-400", hex: "facc15", trains: [{name: "N1000 series", cardImageUrl: "https://static.wikia.nocookie.net/locomotive/images/9/9b/Nagoya_N1000_2020.jpg/revision/latest?cb=20220120130756", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/a/ab/Nagoya_Series-N1000-N1114.jpg"], description: "In service since 2008, the N1000 series is a 6-car train with an IGBT-VVVF inverter, known for its distinctive yellow livery."}, {name: "5050 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/0/02/Nagoya-5000-1.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/c/ce/Nagoya_Subway_5171_20170712.jpg"], description: "In service since 1992, the 5050 series is a 6-car train with an IGBT-VVVF inverter and has been a reliable workhorse for the Higashiyama Line."}] },
+                        "Meijō & Meikō Lines": { color: "bg-purple-400", hex: "c084fc", trains: [{name: "2000 series", cardImageUrl: "https://static.wikia.nocookie.net/locomotive/images/8/86/Nagoya_2000_2021.jpg/revision/latest?cb=20220120140520", collectionImageUrls: ["https://media.istockphoto.com/id/171294875/photo/nagoya-municipal-subway-meijo-line.jpg?s=612x612&w=0&k=20&c=M2KWz8gJUH1Etn1EOiofZ4IpLTtpWneTMr9d_RvDkJ0="], description: "In service since 1989, the 2000 series is a 6-car train with a VVVF inverter that operates on both the Meijo and Meiko loop lines." }] },
+                        "Tsurumai Line": { color: "bg-sky-500", hex: "0ea5e9", trains: [{name: "N3000 series", cardImageUrl: "https://thumb.photo-ac.com/47/4760065183c73b45164ca2e370bc8f24_t.jpeg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/e/ee/N3101H%EF%BC%86N3102H_in_Nissin.JPG"], description: "In service since 2012, the N3000 series is a 6-car train with an IGBT-VVVF inverter. It runs through-services onto the Meitetsu Inuyama and Toyota Lines."}, {name: "3050 series", cardImageUrl: "https://cdn-ak.f.st-hatena.com/images/fotolife/m/marunkun/20201016/20201016233032.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/1/12/%E9%B6%B4%E8%88%9E%E7%B7%9A3050%E5%BD%A2%E9%9B%BB%E8%BB%8A.jpg"], description: "In service since 1993, the 3050 series is a 6-car train with a GTO-VVVF inverter, also used for through-services with Meitetsu."}] },
+                        "Sakura-dōri Line": { color: "bg-red-500", hex: "ef4444", trains: [{name: "6050 series", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/9/9d/NagoyaCitySubwaySeries6050%40Nakamurakuyakusyo.JPG", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/8/81/Nagoya_6050_2021.jpg/revision/latest?cb=20220121125211"], description: "In service since 2010, the 6050 series is a 5-car train with an IGBT-VVVF inverter. It's an updated version of the 6000 series."}, {name: "6000 series", cardImageUrl: "https://static.wikia.nocookie.net/locomotive/images/b/bf/Nagoya_6000_2008.jpg/revision/latest/thumbnail/width/360/height/450?cb=20220121055813", collectionImageUrls: ["https://i.namu.wiki/i/qFuLdWFoX1jVjge-Y-c158dJLoARXE2XiIChOpQ2miOdvaEF89-iPi27WXuSlWnVFHYBfyMH3IrgzVFt9gvPNw.webp"], description: "In service since 1993, the 6000 series is a 5-car train with a GTO-VVVF inverter, the original train for the Sakura-dori Line."}] }
+                    }
+                },
+                "Historic Trains": {
+                    type: "match_trains",
+                    difficulty: "Expert",
+                    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Toei_5300_5320F_60th_anniversary_headmark_in_Oshiage_Station.jpg",
+                    trains: [
+                        { name: "Toei 10-000 series", operator: "Toei Subway", color: "bg-lime-500", hex: "84cc16", cardImageUrl: "https://i.ytimg.com/vi/wAEfp5nDs7k/hqdefault.jpg", collectionImageUrls: ["https://i.ytimg.com/vi/wAEfp5nDs7k/hqdefault.jpg"], description: "The original train for the Shinjuku Line, the 10-000 series served from 1978 to 2018. This 8-car train was one of the first designed for through-service with the Keio Line, using chopper control." },
+                        { name: "Keio 6000 series", operator: "Keio", color: "bg-pink-500", hex: "ec4899", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Keio_6000_6438_revival_at_Keio_Rail-Land.jpg/2560px-Keio_6000_6438_revival_at_Keio_Rail-Land.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Keio6000_6030.jpg/2560px-Keio6000_6030.jpg"], description: "Keio's first 20-meter, 4-door train, the 6000 series served from 1972 to 2011. Using rheostatic control, it was a long-serving workhorse on the Keio network and the first Keio train to provide through-service to the Toei Shinjuku Line." },
+                        { name: "Toei 12-000 series", operator: "Toei Subway", color: "bg-fuchsia-700", hex: "a21caf", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Toei-subway_12-301.jpg/250px-Toei-subway_12-301.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Model_12-000_of_Toei_Transportation.jpg/1200px-Model_12-000_of_Toei_Transportation.jpg"], description: "The original train for the Oedo Line, the 12-000 series is an 8-car linear motor train. The early batches with GTO-VVVF inverters have been running since the line's opening in 1991." },
+                        { name: "Toei 5300 series", operator: "Toei Subway", color: "bg-rose-500", hex: "f43f5e", cardImageUrl: "https://cdn-ak.f.st-hatena.com/images/fotolife/C/ComExp2133/20220102/20220102124937.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Toei_5300_series_at_Heiwajima_Station_%2847983949453%29.jpg/1280px-Toei_5300_series_at_Heiwajima_Station_%2847983949453%29.jpg"], description: "In service from 1991 to 2023, the 5300 series was the workhorse of the Asakusa Line. Known for its distinctive GTO-VVVF inverter sound, this 8-car train was a key player in through-services to other railways." },
+                        { name: "Toei 6000 series", operator: "Toei Subway", color: "bg-blue-800", hex: "1e40af", cardImageUrl: "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e0a9d009-b0ca-4b64-8b33-d37cee6aee7f/dfywimk-5b2601e6-dfb5-463d-9e92-841155423da7.png/v1/fill/w_1920,h_1215,q_80,strp/toei_6000_series_by_barrythetrainfan_dfywimk-fullview.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2UwYTlkMDA5LWIwY2EtNGI2NC04YjMzLWQzN2NlZTZhZWU3ZlwvZGZ5d2ltay01YjI2MDFlNi1kZmI1LTQ2M2QtOWU5Mi04NDExNTU0MjNkYTcucG5nIiwiaGVpZ2h0IjoiPD0xMjE1Iiwid2lkdGgiOiI8PTE5MjAifV1dLCJhdWQiOlsidXJuOnNlcnZpY2U6aW1hZ2Uud2F0ZXJtYXJrIl0sIndtayI6eyJwYXRoIjoiXC93bVwvZTBhOWQwMDktYjBjYS00YjY0LThiMzMtZDM3Y2VlNmFlZTdmXC9iYXJyeXRoZXRyYWluZmFuLTQucG5nIiwib3BhY2l0eSI6OTUsInByb3BvcnRpb25zIjowLjQ1LCJncmF2aXR5IjoiY2VudGVyIn19.zfT3CPRBYqaPYCSSSJhV-OEwCePCiWzbmYfMaOxuG44", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/9/96/Toei_6000_1990s.jpg/revision/latest?cb=20220214005954"], description: "The original train for the Mita Line, the 6000 series served from 1968 to 1999. These 6-car trains were known for their stainless steel bodies and reliable rheostatic control systems." },
+                        { name: "Osaka 10 series", operator: "Osaka Metro", color: "bg-red-700", hex: "b91c1c", cardImageUrl: "https://metroeasy.com/wp-content/uploads/2023/05/Osaka-Subway-Line2-min.jpg", collectionImageUrls: ["https://static.wikia.nocookie.net/locomotive/images/4/46/Osaka_Metro_10_2020.jpg/revision/latest?cb=20220111020526"], description: "An icon of Osaka's Midosuji Line, the 10 series ran from 1976 to 2022. These 10-car trains used a chopper control system and were a familiar sight for commuters for over 45 years." },
+                        { name: "Nagoya 5000 series", operator: "Nagoya Subway", color: "bg-yellow-400", hex: "facc15", cardImageUrl: "https://static.wikia.nocookie.net/locomotive/images/a/ae/Nagoya_5000_2015.jpg/revision/latest?cb=20220121133927", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/0/02/Nagoya-5000-1.jpg"], description: "Known as the 'Yellow Train', the 5000 series served the Higashiyama Line from 1980 to 2015. It was the first air-conditioned train on the line and its 6-car formations were a symbol of Nagoya's subway." },
+                        { name: "Yokohama 1000 series", operator: "Yokohama Subway", color: "bg-blue-500", hex: "3b82f6", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Yokohama-Subway1000-1.jpg", collectionImageUrls: ["https://upload.wikimedia.org/wikipedia/commons/6/63/Yokohama1000-wiki.jpg"], description: "The inaugural train for the Yokohama Municipal Subway, the 1000 series served the Blue Line from 1972 to 2006. These 6-car trains were known for their classic design and reliability." },
+                        { name: "Tokyo Metro 01 series", operator: "Tokyo Metro", color: "bg-orange-400", hex: "f97316", cardImageUrl: "https://i.ytimg.com/vi/DwM0z6hudts/maxresdefault.jpg", collectionImageUrls: ["https://live.staticflickr.com/5646/30025234894_6d40f49cdb_o.jpg"], description: "In service on the Ginza Line from 1984 to 2017, the 01 series was a 6-car train that used a chopper control system. It was the first aluminum-bodied train on the Ginza Line and a beloved icon of the city for over 30 years." },
+                        { name: "Tokyo Metro 03 series", operator: "Tokyo Metro", color: "bg-gray-400", hex: "9ca3af", cardImageUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Tokyo_Metro_03_series.JPG", collectionImageUrls: ["https://cms-image-bucket-production-ap-northeast-1-a7d2.s3.ap-northeast-1.amazonaws.com/images/9/4/6/8/43388649-3-eng-GB/2005-03-20T120000Z_1666490124_RP6DRMRPWNAA_RTRMADP_3_JAPAN-CULT_2048x1152.jpg"], description: "In service from 1988 to 2020, the 03 series was an 8-car train with a mix of chopper and VVVF inverters. It was a familiar sight on the Hibiya Line and through services to the Tobu Skytree Line." },
+                        { name: "Tokyo Metro 6000 series", operator: "Tokyo Metro", color: "bg-green-700", hex: "15803d", cardImageUrl: "https://i.namu.wiki/i/tJeFv_hWMSwrIF7IntBHHFyGOZFhde_-_ghggMugmLpTDChH2rKI8TlGd4h4q0MWq66X9VEeWRc4W-81dJ8kuA.webp", collectionImageUrls: ["https://transphoto.org/photo/17/33/38/1733382.jpg"], description: "A groundbreaking train, the 6000 series served the Chiyoda Line from 1971 to 2018. This 10-car train was a pioneer of chopper control and ran through to the JR Joban and Odakyu Odawara Lines." },
+                        { name: "Tokyo Metro 7000 series", operator: "Tokyo Metro", color: "bg-yellow-400", hex: "facc15", cardImageUrl: "https://thumb.photo-ac.com/27/27cc9dd95ca8cbeb714772ee8187f67f_t.jpeg", collectionImageUrls: ["https://lh3.googleusercontent.com/proxy/hRyMzved2J2J_WE5K2aasFyRwEHeo8pKrDOHRrEAAB1Q8znBBxJ6s5D7j9MNDTBdF2MxEO0e-0qJ85h72TxkmuUZ44gZttUD5nu3oSJgxEJnePXfd95n-rtbObUptsPOcg"], description: "Operating from 1974 to 2022, the 7000 series was a versatile 10-car train. Originally built with chopper control, it was later upgraded to IGBT-VVVF and served both the Yūrakuchō and Fukutoshin Lines." }
+                    ]
+                }
+            };
+
+            let masterCollection = [];
+            let cards = [];
+            let flippedCards = [];
+            let matchedPairs = 0;
+            let canFlip = true;
+            let currentCity = null;
+            let currentCompany = null;
+            let currentLevelData = null;
+
+            function switchScreen(screenToShow) {
+                [mainMenuScreen, citySelectionScreen, companySelectionScreen, lineSelectionScreen, gameScreen, collectionScreen].forEach(screen => screen.classList.add('hidden'));
+                screenToShow.classList.remove('hidden');
+            }
+
+            function showMainMenu() {
+                switchScreen(mainMenuScreen);
+            }
+
+            function showCitySelection() {
+                cityButtonsContainer.innerHTML = '';
+                document.getElementById('city-selection-screen').querySelector('h2').textContent = 'Select a Level';
+                for (const levelName in levels) {
+                    const levelData = levels[levelName];
+                    let count, countLabel;
+                    if(levelData.type === 'match_trains'){
+                         count = levelData.trains.length;
+                         countLabel = "Trains";
+                    } else {
+                         count = levelData.lines ? Object.keys(levelData.lines).length : Object.keys(levelData.companies).length;
+                         countLabel = levelData.lines ? "Lines" : "Companies";
+                    }
+                    
+                    const button = createLevelButton(levelName, levelData.difficulty || 'Varies', levelData.imageUrl, count, countLabel);
+                    button.addEventListener('click', () => handleCityClick(levelName));
+                    cityButtonsContainer.appendChild(button);
+                }
+                switchScreen(citySelectionScreen);
+            }
+            
+            function createLevelButton(name, difficulty, imageUrl, count, countLabel) {
+                 const button = document.createElement('button');
+                 button.className = 'level-button bg-white rounded-xl shadow-md text-left overflow-hidden relative h-48';
+                 const finalImageUrl = imageUrl && imageUrl.trim() !== '' ? imageUrl : `https://placehold.co/300x200/e0e7ff/4f46e5?text=${encodeURIComponent(name)}`;
+
+                 button.innerHTML = `
+                    <div class="bg-image w-full h-full" style="background-image: url('${finalImageUrl}')"></div>
+                    <div class="absolute inset-0 bg-black bg-opacity-40 p-4 flex flex-col justify-end">
+                        <h3 class="text-2xl font-bold text-white">${name}</h3>
+                        <p class="text-white">${count} ${countLabel}</p>
+                        <p class="mt-2 font-semibold ${difficulty === 'Easy' ? 'text-green-400' : difficulty === 'Medium' ? 'text-orange-400' : difficulty === 'Expert' ? 'text-red-400' : 'text-red-400'}">${difficulty}</p>
+                    </div>
+                 `;
+                 return button;
+            }
+
+            function handleCityClick(city) {
+                currentCity = city;
+                const cityData = levels[city];
+                if (cityData.type === "select_company") {
+                    showCompanySelection(city);
+                } else {
+                    initGame(cityData, `${city}`);
+                }
+            }
+
+            function showCompanySelection(city) {
+                companyButtonsContainer.innerHTML = '';
+                document.getElementById('company-selection-title').textContent = `Select a Company in ${city}`;
+                const companies = levels[city].companies;
+                for (const companyName in companies) {
+                    const companyData = companies[companyName];
+                    const button = createLevelButton(companyName, companyData.difficulty, companyData.imageUrl, Object.keys(companyData.lines).length, "Lines");
+                    button.addEventListener('click', () => handleCompanyClick(city, companyName));
+                    companyButtonsContainer.appendChild(button);
+                }
+                switchScreen(companySelectionScreen);
+            }
+
+            function handleCompanyClick(city, companyName) {
+                currentCompany = companyName;
+                const companyData = levels[city].companies[companyName];
+                if (companyData.type === "select_line") {
+                    showLineSelection(city, companyName);
+                } else {
+                    initGame(companyData, `${city} - ${companyName}`);
+                }
+            }
+            
+            function showLineSelection(city, companyName) {
+                lineButtonsContainer.innerHTML = '';
+                 document.getElementById('line-selection-title').textContent = `Select a Line for ${companyName}`;
+                const lines = levels[city].companies[companyName].lines;
+                for (const lineName in lines) {
+                    const lineData = lines[lineName];
+                    let count, countLabel;
+                    if (lineData.type === 'match_trains') {
+                        count = lineData.trains.length;
+                        countLabel = "Train Models";
+                    } else if (lineData.type === 'match_operators') {
+                        count = Object.keys(lineData.operators).length;
+                        countLabel = "Operators";
+                    } else { // match_lines
+                        count = Object.keys(lines[lineName].lines || {}).length > 0 ? Object.keys(lines[lineName].lines).length : lines[lineName].trains.length;
+                        countLabel = Object.keys(lines[lineName].lines || {}).length > 0 ? "Lines" : "Train Models";
+
+                    }
+                    const button = createLevelButton(lineName, lineData.difficulty, lineData.imageUrl, count, countLabel);
+                    button.addEventListener('click', () => {
+                         initGame(lineData, `${companyName} - ${lineName}`);
+                    });
+                    lineButtonsContainer.appendChild(button);
+                }
+                switchScreen(lineSelectionScreen);
+            }
+
+
+            function initGame(data, levelInfo) {
+                currentLevelData = data;
+                gameBoardTitle.textContent = levelInfo.split(' - ').pop();
+                currentLevelInfo.textContent = levelInfo;
+
+                gameBoard.innerHTML = '';
+                collectionSection.innerHTML = '';
+                winMessage.classList.add('hidden');
+                flippedCards = [];
+                matchedPairs = 0;
+                canFlip = true;
+                
+                let cardDeck = [];
+                if (data.type === 'match_trains') {
+                    cardDeck = data.trains.map(train => train.name);
+                } else {
+                    const keys = data.lines ? Object.keys(data.lines) : Object.keys(data.operators);
+                    cardDeck = keys;
+                }
+
+                cards = shuffle([...cardDeck, ...cardDeck]);
+                createBoard();
+                switchScreen(gameScreen);
+            }
+
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function createBoard() {
+                const numCards = cards.length;
+                let cols = 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6';
+                if (numCards <= 8) cols = 'grid-cols-4';
+                else if (numCards <= 12) cols = 'grid-cols-4 sm:grid-cols-6';
+                else if (numCards > 20) cols = 'grid-cols-5 sm:grid-cols-7';
+
+                gameBoard.className = `grid ${cols} gap-3 sm:gap-4`;
+
+                cards.forEach((key) => {
+                    const cardElement = document.createElement('div');
+                    cardElement.classList.add('card', 'relative', 'w-full', 'aspect-square', 'rounded-lg');
+                    cardElement.dataset.key = key;
+
+                    const front = document.createElement('div');
+                    front.classList.add('front', 'bg-gray-700', 'flex', 'items-center', 'justify-center', 'rounded-lg', 'shadow-md');
+                    front.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2z" /></svg>`;
+                    
+                    const back = document.createElement('div');
+                    let info, cardImageUrl, hexColor, trainName;
+
+                    if (currentLevelData.type === 'match_trains') {
+                        info = currentLevelData.trains.find(t => t.name === key);
+                        trainName = info.name;
+                        hexColor = info.hex;
+                        cardImageUrl = info.cardImageUrl;
+                    } else {
+                        const source = currentLevelData.lines || currentLevelData.operators;
+                        info = source[key];
+                        trainName = key;
+                        hexColor = info.hex;
+                        // For line/operator levels, find the first available card image from its trains.
+                        const firstTrainWithImage = info.trains.find(t => t.cardImageUrl && t.cardImageUrl.trim() !== '');
+                        cardImageUrl = firstTrainWithImage ? firstTrainWithImage.cardImageUrl : '';
+                    }
+
+                    const finalImageUrl = cardImageUrl && cardImageUrl.trim() !== '' ? cardImageUrl : `https://placehold.co/200x200/FFFFFF/000000?text=${encodeURIComponent(trainName)}`;
+                    
+                    back.classList.add('back', 'bg-gray-200', 'rounded-lg', 'shadow-lg', 'overflow-hidden', 'relative', 'text-white');
+                    back.innerHTML = `
+                        <img src="${finalImageUrl}" class="w-full h-full object-cover" alt="${key}" onerror="this.onerror=null;this.src='https://placehold.co/200x200/ccc/FFFFFF?text=Image+Not+Found';">
+                        <div class="absolute bottom-0 left-0 right-0 p-1 bg-black bg-opacity-60 text-center">
+                            <p class="font-bold text-xs">${key}</p>
+                        </div>
+                    `;
+
+                    cardElement.appendChild(front);
+                    cardElement.appendChild(back);
+                    cardElement.addEventListener('click', handleCardClick);
+                    gameBoard.appendChild(cardElement);
+                });
+            }
+
+            function handleCardClick(event) {
+                if (!canFlip) return;
+                const clickedCard = event.currentTarget;
+                if (clickedCard.classList.contains('flipped') || clickedCard.classList.contains('matched')) return;
+                clickedCard.classList.add('flipped');
+                flippedCards.push(clickedCard);
+                if (flippedCards.length === 2) {
+                    canFlip = false;
+                    checkForMatch();
+                }
+            }
+
+            function checkForMatch() {
+                const [card1, card2] = flippedCards;
+                if (card1.dataset.key === card2.dataset.key) {
+                    card1.classList.add('matched');
+                    card2.classList.add('matched');
+                    matchedPairs++;
+                    addTrainToCollection(card1.dataset.key);
+                    resetFlippedCards();
+                    if (matchedPairs === cards.length / 2) {
+                        winMessage.classList.remove('hidden');
+                    }
+                } else {
+                    setTimeout(() => {
+                        card1.classList.remove('flipped');
+                        card2.classList.remove('flipped');
+                        resetFlippedCards();
+                    }, 1000);
+                }
+            }
+            
+            function resetFlippedCards() {
+                flippedCards = [];
+                canFlip = true;
+            }
+
+            function addTrainToCollection(key) {
+                let trainObject;
+
+                if (currentLevelData.type === 'match_trains') {
+                    trainObject = currentLevelData.trains.find(t => t.name === key);
+                } else {
+                    const source = currentLevelData.lines || currentLevelData.operators;
+                    const info = source[key];
+                    const randomTrain = info.trains[Math.floor(Math.random() * info.trains.length)];
+                    trainObject = { ...randomTrain, operator: key, color: info.color, hex: info.hex };
+                }
+                
+                if (!trainObject) return; // Safeguard if train object isn't found
+
+                const collectionItem = createCollectionItem(trainObject);
+                collectionSection.appendChild(collectionItem);
+
+                if (!masterCollection.some(t => t.name === trainObject.name && t.operator === trainObject.operator)) {
+                    masterCollection.push(trainObject);
+                }
+            }
+
+            function createCollectionItem(trainObject) {
+                const collectionItem = document.createElement('div');
+                collectionItem.classList.add('collection-item', 'relative', 'rounded-lg', 'shadow-sm', 'text-white', 'text-center', 'overflow-hidden', 'cursor-pointer', 'aspect-square');
+                
+                // Defensive check for collectionImageUrls
+                const imageUrls = trainObject.collectionImageUrls || [];
+                const finalImageUrl = imageUrls[0] && imageUrls[0].trim() !== '' ? imageUrls[0] : `https://placehold.co/200x200/${trainObject.hex}/FFFFFF?text=${encodeURIComponent(trainObject.name)}`;
+                
+                collectionItem.innerHTML = `
+                    <img src="${finalImageUrl}" class="w-full h-full object-cover" alt="${trainObject.name}" onerror="this.onerror=null;this.src='https://placehold.co/200x200/ccc/FFFFFF?text=Image+Not+Found';">
+                    <div class="absolute bottom-0 left-0 right-0 p-2 bg-black bg-opacity-50">
+                        <p class="font-bold text-sm">${trainObject.name}</p>
+                        <p class="text-xs opacity-80">${trainObject.operator}</p>
+                    </div>
+                `;
+                collectionItem.addEventListener('click', () => showTrainInfo(trainObject));
+                return collectionItem;
+            }
+
+            function showCollectionScreen() {
+                masterCollectionGrid.innerHTML = '';
+                if(masterCollection.length === 0) {
+                    masterCollectionGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">You haven't collected any trains yet. Go play!</p>`;
+                } else {
+                    masterCollection.forEach(train => {
+                        const item = createCollectionItem(train);
+                        masterCollectionGrid.appendChild(item);
+                    });
+                }
+                switchScreen(collectionScreen);
+            }
+
+            function showTrainInfo(trainObject) {
+                document.getElementById('modal-train-name').textContent = trainObject.name;
+                document.getElementById('modal-train-operator').textContent = trainObject.operator;
+                document.getElementById('modal-train-description').textContent = trainObject.description;
+                const imagesContainer = document.getElementById('modal-train-images-container');
+                imagesContainer.innerHTML = ''; // Clear previous images
+                
+                const imageUrls = trainObject.collectionImageUrls || [];
+                if (imageUrls.length > 0 && imageUrls.some(url => url && url.trim() !== '')) {
+                    imageUrls.forEach((url, index) => {
+                        const finalImageUrl = url && url.trim() !== '' ? url : `https://placehold.co/400x225/${trainObject.hex}/FFFFFF?text=${encodeURIComponent(trainObject.name)}+Style+${index + 1}`;
+                        const img = document.createElement('img');
+                        img.src = finalImageUrl;
+                        img.alt = `${trainObject.name} style ${index + 1}`;
+                        img.classList.add('w-full', 'h-48', 'object-cover', 'rounded-lg', 'bg-gray-200');
+                        img.onerror = function() {
+                            this.onerror=null;
+                            this.src='https://placehold.co/400x225/ccc/FFFFFF?text=Image+Not+Found';
+                        };
+                        imagesContainer.appendChild(img);
+                    });
+                } else {
+                     const finalImageUrl = `https://placehold.co/400x225/${trainObject.hex}/FFFFFF?text=${encodeURIComponent(trainObject.name)}`;
+                     imagesContainer.innerHTML = `<img src="${finalImageUrl}" alt="${trainObject.name}" class="w-full h-48 object-cover rounded-lg bg-gray-200">`;
+                }
+                
+                trainInfoModal.classList.remove('hidden');
+                setTimeout(() => trainInfoModal.classList.remove('opacity-0'), 10);
+            }
+
+            function hideTrainInfo() {
+                trainInfoModal.classList.add('opacity-0');
+                setTimeout(() => trainInfoModal.classList.add('hidden'), 300);
+            }
+            
+            // Main Menu Navigation
+            playButton.addEventListener('click', showCitySelection);
+            collectionButton.addEventListener('click', showCollectionScreen);
+            
+            // Back Button Navigation
+            changeLevelButton.addEventListener('click', showMainMenu);
+            backToCitiesButton.addEventListener('click', showCitySelection);
+            backToCompaniesButton.addEventListener('click', () => showCompanySelection(currentCity));
+            backToMainMenuFromCity.addEventListener('click', showMainMenu);
+            backToMainMenuFromCollection.addEventListener('click', showMainMenu);
+            
+            // Modal close
+            modalCloseButton.addEventListener('click', hideTrainInfo);
+            trainInfoModal.addEventListener('click', (e) => {
+                if (e.target === trainInfoModal) {
+                    hideTrainInfo();
+                }
+            });
+
+
+            // --- Initial Game Start ---
+            showMainMenu();
+        });
+    </script>
+</body>
+</html>
