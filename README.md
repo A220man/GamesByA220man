@@ -18,3 +18,15 @@ A stealth and puzzle adventure where you play as a kid trying to reclaim your pr
 Get as far as you can in a 30-minute timer.
 
 A fast-paced 2D platformer that tests your speed and agility. Race against a 30-minute clock through a series of challenging, procedurally generated obstacle courses. Unlock powerful modifiers, customize your character, and push your limits to set a new high score.
+
+
+🚆 Japan Subway Train Match Game
+A memory card matching game for train enthusiasts. Flip cards to find pairs and collect beautifully detailed models of real trains from Japan's most famous subway systems.
+
+Real-World Subway Levels: Play through levels based on the actual subway networks of Tokyo, Osaka, Kyoto, Fukuoka, and more.
+
+Build Your Collection: Unlock and collect dozens of accurately detailed train models.
+
+In-Depth Train Info: Click any collected train to view multiple images and learn about its service history, number of cars, and technical specs.
+
+Historic Trains: Play a special level to collect iconic and beloved rolling stock that has been retired from service.
