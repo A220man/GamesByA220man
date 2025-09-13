@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airbase Conqueror</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            touch-action: none; /* Prevents scrolling on mobile */
+        }
+        canvas {
+            cursor: pointer;
+            display: block;
+            background-color: #4a5568; /* A darker gray for the sea/land */
+        }
+        .message-box {
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.3s ease-in-out;
+        }
+        .message-box.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white flex flex-col items-center justify-center h-screen m-0 p-4">
+
+    <div id="game-container" class="w-full max-w-4xl aspect-video bg-gray-900 rounded-xl shadow-2xl overflow-hidden relative">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Game Over Message Box -->
+        <div id="messageBox" class="message-box absolute top-1/2 left-1/2 w-80 bg-gray-900 bg-opacity-80 backdrop-blur-sm p-8 rounded-xl shadow-lg text-center z-10">
+            <h2 id="messageTitle" class="text-3xl font-bold mb-4">You Won!</h2>
+            <p id="messageText" class="text-gray-300 mb-6">You have conquered all the airbases!</p>
+            <button id="restartButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors w-full">Play Again</button>
+        </div>
+        <button id="pauseButton" class="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg z-10">Pause</button>
+    </div>
+    <div class="mt-4 text-center text-gray-400 text-sm">
+        <h1 class="text-2xl font-bold text-white mb-1">Airbase Conqueror</h1>
+        <p>Click and drag from your blue base to another to send planes.</p>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+
+    // --- Game Configuration ---
+    const config = {
+        baseCount: 8,
+        bomberBaseCount: 2,
+        carrierCount: 1,
+        minDistance: 120,
+        playerColor: '#3b82f6', // Blue
+        aiColor: '#ef4444', // Red
+        neutralColor: '#9ca3af', // Gray
+        planeGenerationInterval: 1000, // ms
+        fleetSpeed: 1.2,
+        bomberSpeed: 0.8,
+        carrierSpeed: 0.3,
+        aiReactionTime: 1500, // ms
+        carrierRange: 200,
+    };
+
+    // --- Game State ---
+    let bases = [];
+    let carriers = [];
+    let fleets = [];
+    let launchQueues = [];
+    let selectedObject = null;
+    let mouse = { x: 0, y: 0 };
+    let isMouseDown = false;
+    let gameOver = false;
+    let isPaused = false;
+    let planeGenerationTimer;
+    let aiTimer;
+    let wrathEventTriggered = false;
+    let wrathMessage = '';
+    let wrathMessageTimer = 0;
+
+    // --- Identifiers ---
+    const PLAYER = 1;
+    const AI = 2;
+    const NEUTRAL = 0;
+    const BOMBER_BASE = 'bomber_base';
+    const REGULAR_BASE = 'regular_base';
+
+    // --- Utility Functions ---
+    const getDistance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+    // --- Drawing Functions ---
+    function drawPlane(x, y, angle, color, isBomber = false) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 1;
+
+        if (isBomber) { // Bomber: Larger, swept wings
+            ctx.beginPath();
+            ctx.moveTo(0, -12); // Nose
+            ctx.lineTo(8, 2);  // Right wing tip
+            ctx.lineTo(6, 6);  // Right tail wing
+            ctx.lineTo(0, 4);   // Tail center
+            ctx.lineTo(-6, 6); // Left tail wing
+            ctx.lineTo(-8, 2); // Left wing tip
+            ctx.closePath();
+        } else { // Fighter: smaller, classic jet shape
+            ctx.beginPath();
+            ctx.moveTo(0, -8); // Nose
+            ctx.lineTo(6, 6);  // Right wing
+            ctx.lineTo(0, 3);  // Tail
+            ctx.lineTo(-6, 6); // Left wing
+            ctx.closePath();
+        }
+        
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawBase(base) {
+        const colors = { [PLAYER]: config.playerColor, [AI]: config.aiColor, [NEUTRAL]: config.neutralColor };
+        const color = colors[base.owner];
+
+        // Base color foundation
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(base.x, base.y, base.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Runways and taxiways based on plane count
+        const planes = base.planes;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = base.radius / 5;
+
+        // Main runway
+        ctx.beginPath();
+        ctx.moveTo(base.x - base.radius * 0.8, base.y);
+        ctx.lineTo(base.x + base.radius * 0.8, base.y);
+        ctx.stroke();
+        
+        // Second runway for bomber bases
+        if (base.type === BOMBER_BASE) {
+            ctx.beginPath();
+            ctx.moveTo(base.x, base.y - base.radius * 0.8);
+            ctx.lineTo(base.x, base.y + base.radius * 0.8);
+            ctx.stroke();
+        }
+
+        // Taxiways
+        if (planes > 20) {
+            ctx.lineWidth = base.radius / 8;
+            ctx.beginPath();
+            ctx.moveTo(base.x - base.radius * 0.6, base.y - base.radius * 0.4);
+            ctx.lineTo(base.x + base.radius * 0.6, base.y - base.radius * 0.4);
+            ctx.stroke();
+        }
+        if (planes > 40) {
+             ctx.beginPath();
+            ctx.moveTo(base.x - base.radius * 0.6, base.y + base.radius * 0.4);
+            ctx.lineTo(base.x + base.radius * 0.6, base.y + base.radius * 0.4);
+            ctx.stroke();
+        }
+
+
+        // Draw plane count
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${base.radius * 0.7}px Poppins`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(planes), base.x, base.y);
+    }
+    
+    function drawCarrier(carrier) {
+        const color = carrier.owner === PLAYER ? config.playerColor : config.aiColor;
+        
+        // Hull
+        ctx.save();
+        ctx.translate(carrier.x, carrier.y);
+        ctx.rotate(carrier.angle);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -25); // Bow
+        ctx.lineTo(10, 20);
+        ctx.lineTo(-10, 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Runway marking
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(0, 15);
+        ctx.stroke();
+        ctx.restore();
+
+        // Shooting range
+        ctx.strokeStyle = `${color}66`; // semi-transparent
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(carrier.x, carrier.y, config.carrierRange, 0, 2 * Math.PI);
+        ctx.stroke();
+
+
+        // Plane count
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Poppins';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(carrier.planes), carrier.x, carrier.y);
+    }
+    
+    function drawFleet(fleet) {
+        const color = fleet.owner === PLAYER ? config.playerColor : config.aiColor;
+        drawPlane(fleet.x, fleet.y, fleet.angle, color, fleet.isBomber);
+    }
+
+    function drawPaths() {
+        launchQueues.forEach(queue => {
+            if (queue.planesLeft > 0) {
+                const colors = { [PLAYER]: config.playerColor, [AI]: config.aiColor };
+                const color = colors[queue.owner];
+                ctx.beginPath();
+                ctx.moveTo(queue.source.x, queue.source.y);
+                ctx.lineTo(queue.target.x, queue.target.y);
+                ctx.strokeStyle = `${color}66`; // 40% opacity
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 8]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        });
+    }
+
+    function drawSelectionLine() {
+        if (isMouseDown && selectedObject) {
+            ctx.beginPath();
+            ctx.moveTo(selectedObject.x, selectedObject.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+
+    // --- Game Logic ---
+    function createEntities() {
+        bases = [];
+        carriers = [];
+        // Create regular bases
+        for (let i = 0; i < config.baseCount; i++) {
+            createEntity(REGULAR_BASE);
+        }
+        // Create bomber bases
+        for (let i = 0; i < config.bomberBaseCount; i++) {
+            createEntity(BOMBER_BASE);
+        }
+        
+        // Create carriers
+        for (let i = 0; i < config.carrierCount; i++) {
+            const playerCarrier = createEntity(null, PLAYER);
+            if (playerCarrier) {
+                carriers.push(playerCarrier);
+            }
+            const aiCarrier = createEntity(null, AI);
+            if (aiCarrier) {
+                carriers.push(aiCarrier);
+            }
+        }
+
+        // Assign starting owners
+        if (bases.length > 1) {
+            bases[0].owner = PLAYER;
+            bases[0].planes = 25;
+            bases[1].owner = AI;
+            bases[1].planes = 25;
+        }
+    }
+
+    function createEntity(type, owner = NEUTRAL) {
+        let entity;
+        let attempts = 0;
+        let positionFound = false;
+        
+        while (!positionFound && attempts < 1000) {
+            attempts++;
+            const radius = type === BOMBER_BASE ? 40 : Math.random() * 10 + 30;
+            const x = Math.random() * (canvas.width - radius * 2) + radius;
+            const y = Math.random() * (canvas.height - radius * 2) + radius;
+
+            let isValid = true;
+            for (const b of bases) {
+                if (getDistance(x, y, b.x, b.y) < b.radius + radius + config.minDistance) {
+                    isValid = false; break;
+                }
+            }
+            if(!isValid) continue;
+             for (const c of carriers) {
+                if (getDistance(x, y, c.x, c.y) < c.radius + radius + config.minDistance) {
+                    isValid = false; break;
+                }
+            }
+             if(!isValid) continue;
+
+             positionFound = true;
+
+             if (type) { // It's a base
+                entity = {
+                    x, y, radius, owner, type,
+                    planes: type === BOMBER_BASE ? 15 : Math.floor(Math.random() * 10) + 10,
+                    capacity: type === BOMBER_BASE ? 100 : 70,
+                };
+                bases.push(entity);
+             } else { // It's a carrier
+                entity = {
+                    x, y, owner,
+                    planes: 15,
+                    capacity: 30,
+                    radius: 25,
+                    angle: Math.random() * Math.PI * 2,
+                    target: {x,y},
+                    isCarrier: true,
+                }
+                return entity;
+             }
+        }
+    }
+
+
+    function launchFleet(from, to) {
+        if (from.planes < 2) return;
+        const planesToSend = Math.floor(from.planes / 2);
+        from.planes -= planesToSend;
+
+        launchQueues.push({
+            source: from,
+            target: to,
+            owner: from.owner,
+            isBomber: from.type === BOMBER_BASE,
+            planesLeft: planesToSend,
+            timer: 0,
+            launchInterval: 8, // frames between each plane launch
+        });
+    }
+
+    function updateLaunchQueues() {
+        for (let i = launchQueues.length - 1; i >= 0; i--) {
+            const queue = launchQueues[i];
+            queue.timer++;
+            if (queue.timer >= queue.launchInterval && queue.planesLeft > 0) {
+                queue.timer = 0;
+                queue.planesLeft--;
+
+                const isBomber = queue.isBomber;
+                const speed = isBomber ? config.bomberSpeed : config.fleetSpeed;
+                const angle = Math.atan2(queue.target.y - queue.source.y, queue.target.x - queue.source.x);
+
+                fleets.push({
+                    owner: queue.owner,
+                    planeCount: 1, // Each fleet is now a single plane
+                    x: queue.source.x, y: queue.source.y, 
+                    target: queue.target,
+                    angle: angle + Math.PI / 2,
+                    dx: Math.cos(angle) * speed,
+                    dy: Math.sin(angle) * speed,
+                    isBomber: isBomber
+                });
+            }
+            // Remove queue once all planes are launched
+            if (queue.planesLeft <= 0) {
+                 // We keep it in the queue to draw the path until the battle is over,
+                 // but a better implementation would remove it when the last plane arrives.
+                 // For now, the path will just disappear when the launch is done.
+                 launchQueues.splice(i, 1);
+            }
+        }
+    }
+
+    function updateFleets() {
+        for (let i = fleets.length - 1; i >= 0; i--) {
+            const fleet = fleets[i];
+            if (!fleet) continue;
+            
+            fleet.x += fleet.dx;
+            fleet.y += fleet.dy;
+
+            if (getDistance(fleet.x, fleet.y, fleet.target.x, fleet.target.y) < fleet.target.radius) {
+                handleArrival(fleet);
+                fleets.splice(i, 1);
+            }
+        }
+    }
+
+    function updateCarriers() {
+        carriers.forEach(carrier => {
+            if (!carrier || !carrier.target) return;
+            // Movement
+            const dist = getDistance(carrier.x, carrier.y, carrier.target.x, carrier.target.y);
+            if (dist > 5) {
+                const angle = Math.atan2(carrier.target.y - carrier.y, carrier.target.x - carrier.x);
+                carrier.x += Math.cos(angle) * config.carrierSpeed;
+                carrier.y += Math.sin(angle) * config.carrierSpeed;
+                carrier.angle = angle + Math.PI / 2;
+            }
+
+            // Shooting
+            for (let i = fleets.length - 1; i >= 0; i--) {
+                const fleet = fleets[i];
+                if (fleet && fleet.owner !== carrier.owner) {
+                    if (getDistance(carrier.x, carrier.y, fleet.x, fleet.y) < config.carrierRange) {
+                        fleets.splice(i, 1);
+                    }
+                }
+            }
+        });
+    }
+
+    function handleArrival(fleet) {
+        const target = fleet.target;
+
+        if (fleet.owner === target.owner) {
+            // Reinforce
+            target.planes = Math.min(target.capacity, target.planes + fleet.planeCount);
+        } else {
+            // Attack
+            const attackPower = fleet.isBomber ? fleet.planeCount * 1.5 : fleet.planeCount;
+            
+            if (attackPower > target.planes) {
+                // Attacker wins battle
+                const remainingAttackers = attackPower - target.planes;
+                let canConquer = false;
+
+                if (target.isCarrier || target.type === BOMBER_BASE) {
+                    // Special targets require a carrier to conquer
+                    const friendlyCarriers = carriers.filter(c => c.owner === fleet.owner);
+                    for (const fc of friendlyCarriers) {
+                        if (getDistance(fc.x, fc.y, target.x, target.y) < config.carrierRange) {
+                            canConquer = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // Regular bases can always be conquered
+                    canConquer = true;
+                }
+
+                if (canConquer) {
+                    target.owner = fleet.owner;
+                    target.planes = remainingAttackers;
+                } else {
+                    // Cannot conquer (e.g., no carrier in range), so base is just damaged.
+                    target.planes = 0; // Base is neutralized but not captured.
+                }
+            } else {
+                // Defender wins or ties
+                target.planes -= attackPower;
+            }
+        }
+    }
+    
+    function generatePlanes() {
+        [...bases, ...carriers].forEach(entity => {
+            if (entity.owner !== NEUTRAL && entity.planes < entity.capacity) {
+                entity.planes += 1;
+            }
+        });
+    }
+
+    // --- AI Logic ---
+    function runAI() {
+        if (gameOver) return;
+        const aiEntities = [...bases, ...carriers].filter(e => e.owner === AI);
+        const nonAiEntities = [...bases, ...carriers].filter(e => e.owner !== AI);
+
+        if (aiEntities.length === 0 || nonAiEntities.length === 0) return;
+
+        aiEntities.forEach(aiEntity => {
+            if (aiEntity.planes > 25) {
+                let target = nonAiEntities[Math.floor(Math.random() * nonAiEntities.length)];
+                if (aiEntity.isCarrier) {
+                    // carriers move towards valuable targets
+                    aiEntity.target.x = target.x;
+                    aiEntity.target.y = target.y;
+                } else {
+                    launchFleet(aiEntity, target);
+                }
+            }
+        });
+    }
+
+    // --- Game Loop & Control ---
+    function checkFleetCollisions() {
+        for (let i = fleets.length - 1; i >= 0; i--) {
+            for (let j = i - 1; j >= 0; j--) {
+                const fleetA = fleets[i];
+                const fleetB = fleets[j];
+
+                if (!fleetA || !fleetB || fleetA.owner === fleetB.owner) continue;
+
+                const dist = getDistance(fleetA.x, fleetA.y, fleetB.x, fleetB.y);
+
+                if (dist < 15) { // Collision radius for dogfighting
+                    // Both planes are destroyed
+                    fleets.splice(i, 1);
+                    fleets.splice(j, 1);
+                    break; // fleetA is gone, break inner loop
+                }
+            }
+        }
+    }
+
+    function checkGameOver() {
+        const playerBases = bases.filter(b => b.owner === PLAYER);
+        const aiBases = bases.filter(b => b.owner === AI);
+        const playerCarriers = carriers.filter(c => c.owner === PLAYER);
+        const aiCarriers = carriers.filter(c => c.owner === AI);
+
+        if (!gameOver && (bases.length > 0 || carriers.length > 0)) {
+            if ((playerBases.length + playerCarriers.length) > 0 && (aiBases.length + aiCarriers.length) === 0) {
+                endGame(true);
+            } else if ((playerBases.length + playerCarriers.length) === 0 && (aiBases.length + aiCarriers.length) > 0) {
+                endGame(false);
+            } else if (playerBases.length === 1 && playerCarriers.length === 0 && !wrathEventTriggered) {
+                // 1 in 10000 chance
+                if (Math.random() < 0.0001) {
+                    triggerWrathEvent(playerBases[0]);
+                }
+            }
+        }
+    }
+
+    function triggerWrathEvent(lastBase) {
+        wrathEventTriggered = true;
+        wrathMessage = 'FACE MY TRUE WRATH';
+        wrathMessageTimer = 200; // Display for ~3 seconds (60fps)
+
+        // Add planes to the last base
+        lastBase.planes += 50;
+
+        // Weaken enemies
+        [...bases, ...carriers].forEach(entity => {
+            if (entity.owner === AI) {
+                entity.planes = Math.floor(entity.planes * 0.7); // Reduce planes by 30%
+            }
+        });
+
+        // Give a new carrier
+        const newCarrier = createEntity(null, PLAYER);
+        if (newCarrier) {
+            // Try to place it near the last base
+            newCarrier.x = lastBase.x + 100;
+            newCarrier.y = lastBase.y;
+            carriers.push(newCarrier);
+        }
+    }
+
+    function endGame(playerWon) {
+        gameOver = true;
+        clearInterval(planeGenerationTimer);
+        clearInterval(aiTimer);
+        document.getElementById('messageBox').classList.add('show');
+        document.getElementById('messageTitle').innerText = playerWon ? "Victory!" : "Defeat!";
+        document.getElementById('messageText').innerText = playerWon ? "You have conquered all enemy airbases!" : "You have lost all of your forces.";
+    }
+
+    function gameLoop() {
+        if (gameOver) return;
+
+        if (!isPaused) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            updateLaunchQueues();
+            updateFleets();
+            updateCarriers();
+            checkFleetCollisions(); // Check for mid-air combat
+
+            drawPaths();
+
+            [...bases, ...carriers].forEach(e => {
+                if (e.isCarrier) drawCarrier(e);
+                else drawBase(e);
+            });
+            fleets.forEach(drawFleet);
+            drawSelectionLine();
+            checkGameOver();
+
+            if (wrathMessageTimer > 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, canvas.height / 2 - 60, canvas.width, 120);
+                ctx.fillStyle = 'red';
+                ctx.font = 'bold 60px Poppins';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(wrathMessage, canvas.width / 2, canvas.height / 2);
+                wrathMessageTimer--;
+            }
+        } else {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px Poppins';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Paused', canvas.width / 2, canvas.height / 2);
+
+            // Draw "Return to Main Menu" button
+            const buttonWidth = 200;
+            const buttonHeight = 50;
+            const buttonX = canvas.width / 2 - buttonWidth / 2;
+            const buttonY = canvas.height / 2 + 50;
+            ctx.fillStyle = '#4a5568';
+            ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 20px Poppins';
+            ctx.fillText('Main Menu', canvas.width / 2, buttonY + buttonHeight / 2);
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+    
+    function init() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        fleets = [];
+        launchQueues = [];
+        selectedObject = null;
+        isMouseDown = false;
+        gameOver = false;
+        wrathEventTriggered = false;
+        wrathMessage = '';
+        wrathMessageTimer = 0;
+        document.getElementById('messageBox').classList.remove('show');
+        createEntities();
+        clearInterval(planeGenerationTimer);
+        clearInterval(aiTimer);
+        planeGenerationTimer = setInterval(generatePlanes, config.planeGenerationInterval);
+        aiTimer = setInterval(runAI, config.aiReactionTime);
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- Event Listeners ---
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+    
+    function handleStart(evt) {
+        evt.preventDefault();
+        const pos = evt.touches ? getMousePos(evt.touches[0]) : getMousePos(evt);
+        mouse.x = pos.x; mouse.y = pos.y;
+
+        if (isPaused) {
+            const buttonWidth = 200;
+            const buttonHeight = 50;
+            const buttonX = canvas.width / 2 - buttonWidth / 2;
+            const buttonY = canvas.height / 2 + 50;
+            if (mouse.x > buttonX && mouse.x < buttonX + buttonWidth && mouse.y > buttonY && mouse.y < buttonY + buttonHeight) {
+                window.location.href = 'index.html';
+            }
+            return;
+        }
+
+        isMouseDown = true;
+        selectedObject = null;
+        for (const entity of [...bases, ...carriers]) {
+            if (getDistance(mouse.x, mouse.y, entity.x, entity.y) < entity.radius && entity.owner === PLAYER) {
+                selectedObject = entity;
+                break;
+            }
+        }
+    }
+
+    function handleMove(evt) {
+        if (!isMouseDown) return;
+        evt.preventDefault();
+        const pos = evt.touches ? getMousePos(evt.touches[0]) : getMousePos(evt);
+        mouse.x = pos.x; mouse.y = pos.y;
+    }
+
+    function handleEnd(evt) {
+        evt.preventDefault();
+        const pos = evt.changedTouches ? getMousePos(evt.changedTouches[0]) : getMousePos(evt);
+
+        if (selectedObject && selectedObject.isCarrier) {
+            selectedObject.target = {x: pos.x, y: pos.y};
+        } else if (selectedObject) {
+            let targetObject = null;
+            for (const entity of [...bases, ...carriers]) {
+                if (getDistance(pos.x, pos.y, entity.x, entity.y) < entity.radius) {
+                    targetObject = entity;
+                    break;
+                }
+            }
+            if (targetObject && targetObject !== selectedObject) {
+                launchFleet(selectedObject, targetObject);
+            }
+        }
+        isMouseDown = false;
+        selectedObject = null;
+    }
+
+    // Mouse & Touch events
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('mouseleave', () => { isMouseDown = false; selectedObject = null; });
+    canvas.addEventListener('touchstart', handleStart);
+    canvas.addEventListener('touchmove', handleMove);
+    canvas.addEventListener('touchend', handleEnd);
+
+    function togglePause() {
+        isPaused = !isPaused;
+        document.getElementById('pauseButton').innerText = isPaused ? 'Resume' : 'Pause';
+        if (isPaused) {
+            clearInterval(planeGenerationTimer);
+            clearInterval(aiTimer);
+        } else {
+            planeGenerationTimer = setInterval(generatePlanes, config.planeGenerationInterval);
+            aiTimer = setInterval(runAI, config.aiReactionTime);
+        }
+    }
+
+    document.getElementById('restartButton').addEventListener('click', init);
+    document.getElementById('pauseButton').addEventListener('click', togglePause);
+    window.addEventListener('resize', init);
+
+    init();
+
+</script>
+
+</body>
+</html>
+

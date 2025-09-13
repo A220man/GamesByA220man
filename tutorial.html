@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airbase Conqueror - Tutorial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            cursor: pointer;
+            display: block;
+            background-color: #4a5568;
+        }
+    </style>
+</head>
+<body class="bg-gray-800 text-white flex flex-col items-center justify-center h-screen m-0 p-4">
+
+    <div id="game-container" class="w-full max-w-4xl aspect-video bg-gray-900 rounded-xl shadow-2xl overflow-hidden relative">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="tutorial-panel" class="mt-4 w-full max-w-4xl bg-gray-900 p-4 rounded-xl shadow-lg flex justify-between items-center">
+        <div id="tutorial-text" class="text-lg text-gray-300">Welcome to the Airbase Conqueror tutorial!</div>
+        <button id="next-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Next</button>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+    const tutorialText = document.getElementById('tutorial-text');
+    const nextButton = document.getElementById('next-button');
+
+    const config = {
+        playerColor: '#3b82f6',
+        aiColor: '#ef4444',
+        neutralColor: '#9ca3af',
+        fleetSpeed: 1.2,
+    };
+
+    let bases = [];
+    let carriers = [];
+    let fleets = [];
+    let selectedObject = null;
+    let mouse = { x: 0, y: 0 };
+    let isMouseDown = false;
+
+    let tutorialStep = 0;
+
+    const PLAYER = 1, AI = 2, NEUTRAL = 0;
+
+    // --- Drawing Functions (simplified from game.js) ---
+    function drawBase(base) {
+        ctx.fillStyle = { [PLAYER]: config.playerColor, [AI]: config.aiColor, [NEUTRAL]: config.neutralColor }[base.owner];
+        ctx.beginPath();
+        ctx.arc(base.x, base.y, base.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${base.radius * 0.7}px Poppins`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(base.planes), base.x, base.y);
+    }
+
+    function drawCarrier(carrier) {
+        ctx.save();
+        ctx.translate(carrier.x, carrier.y);
+        ctx.rotate(carrier.angle);
+        ctx.fillStyle = config.playerColor;
+        ctx.beginPath();
+        ctx.moveTo(0, -25); ctx.lineTo(10, 20); ctx.lineTo(-10, 20); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Poppins';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(carrier.planes), carrier.x, carrier.y);
+    }
+
+    function drawFleet(fleet) {
+        ctx.save();
+        ctx.translate(fleet.x, fleet.y);
+        ctx.rotate(fleet.angle);
+        ctx.fillStyle = config.playerColor;
+        ctx.beginPath();
+        ctx.moveTo(0, -8); ctx.lineTo(6, 6); ctx.lineTo(0, 3); ctx.lineTo(-6, 6); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawSelectionLine() {
+        if (isMouseDown && selectedObject) {
+            ctx.beginPath();
+            ctx.moveTo(selectedObject.x, selectedObject.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+
+    // --- Game Logic (simplified) ---
+    const getDistance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+    function launchFleet(from, to) {
+        if (from.planes < 2) return;
+        const planesToSend = Math.floor(from.planes / 2);
+        from.planes -= planesToSend;
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        fleets.push({
+            owner: from.owner,
+            planeCount: planesToSend,
+            x: from.x, y: from.y,
+            target: to,
+            angle: angle + Math.PI / 2,
+            dx: Math.cos(angle) * config.fleetSpeed,
+            dy: Math.sin(angle) * config.fleetSpeed,
+        });
+        if (tutorialStep === 1) {
+            // Player has successfully sent planes
+            setTimeout(nextStep, 2000); // Give them a moment to see the planes
+        }
+    }
+
+    function updateFleets() {
+        for (let i = fleets.length - 1; i >= 0; i--) {
+            const fleet = fleets[i];
+            fleet.x += fleet.dx;
+            fleet.y += fleet.dy;
+            if (getDistance(fleet.x, fleet.y, fleet.target.x, fleet.target.y) < fleet.target.radius) {
+                handleArrival(fleet);
+                fleets.splice(i, 1);
+            }
+        }
+    }
+    
+    function updateCarriers() {
+        carriers.forEach(carrier => {
+            if (!carrier.target) return;
+            const dist = getDistance(carrier.x, carrier.y, carrier.target.x, carrier.target.y);
+            if (dist > 5) {
+                const angle = Math.atan2(carrier.target.y - carrier.y, carrier.target.x - carrier.x);
+                carrier.x += Math.cos(angle) * 0.5; // Slower for tutorial
+                carrier.y += Math.sin(angle) * 0.5;
+                carrier.angle = angle + Math.PI / 2;
+            }
+        });
+    }
+
+    function handleArrival(fleet) {
+        const target = fleet.target;
+        if (fleet.owner === target.owner) {
+            target.planes += fleet.planeCount;
+        } else {
+            if (fleet.planeCount > target.planes) {
+                target.owner = fleet.owner;
+                target.planes = fleet.planeCount - target.planes;
+                if (tutorialStep === 3) {
+                    // Player has won the practice round
+                    setTimeout(nextStep, 2000);
+                }
+            } else {
+                target.planes -= fleet.planeCount;
+            }
+        }
+    }
+    
+    function generatePlanes() {
+        [...bases, ...carriers].forEach(entity => {
+            if (entity.owner !== NEUTRAL) {
+                entity.planes += 0.2; // Slower generation for tutorial
+            }
+        });
+    }
+
+    // --- Tutorial Steps ---
+    const tutorialSteps = [
+        {
+            text: "Welcome! Let's learn how to conquer the skies. Click 'Next' to begin.",
+            setup: () => {
+                bases = [];
+                carriers = [];
+                fleets = [];
+            }
+        },
+        {
+            text: "To send planes, CLICK and DRAG from your blue base to the neutral gray base.",
+            setup: () => {
+                bases = [
+                    { x: canvas.width * 0.2, y: canvas.height / 2, radius: 40, owner: PLAYER, planes: 20, type: 'regular_base' },
+                    { x: canvas.width * 0.8, y: canvas.height / 2, radius: 30, owner: NEUTRAL, planes: 5, type: 'regular_base' }
+                ];
+                carriers = [];
+                fleets = [];
+                nextButton.style.display = 'none'; // Hide until task is complete
+            }
+        },
+        {
+            text: "Great! Now, to move your aircraft carrier, CLICK and DRAG it to a new location.",
+            setup: () => {
+                bases = [];
+                carriers = [
+                    { x: canvas.width * 0.3, y: canvas.height / 2, radius: 25, owner: PLAYER, planes: 15, angle: -Math.PI/2, target: {x: canvas.width * 0.3, y: canvas.height / 2}, isCarrier: true }
+                ];
+                fleets = [];
+            }
+        },
+        {
+            text: "Excellent! Now for a practice round. Conquer the enemy's red base to win!",
+            setup: () => {
+                bases = [
+                    // Player bases
+                    { x: canvas.width * 0.1, y: canvas.height * 0.3, radius: 40, owner: PLAYER, planes: 25, type: 'bomber_base' },
+                    { x: canvas.width * 0.1, y: canvas.height * 0.7, radius: 40, owner: PLAYER, planes: 25, type: 'bomber_base' },
+                    { x: canvas.width * 0.25, y: canvas.height * 0.3, radius: 30, owner: PLAYER, planes: 20, type: 'regular_base' },
+                    { x: canvas.width * 0.25, y: canvas.height * 0.7, radius: 30, owner: PLAYER, planes: 20, type: 'regular_base' },
+                    // AI base
+                    { x: canvas.width * 0.8, y: canvas.height / 2, radius: 40, owner: AI, planes: 15, type: 'regular_base' }
+                ];
+                carriers = [
+                    { x: canvas.width * 0.2, y: canvas.height / 2, radius: 25, owner: PLAYER, planes: 15, angle: -Math.PI/2, target: {x: canvas.width * 0.2, y: canvas.height / 2}, isCarrier: true }
+                ];
+                fleets = [];
+            }
+        },
+        {
+            text: "Congratulations! You've completed the tutorial.",
+            setup: () => {
+                nextButton.innerText = 'Play Game';
+                nextButton.onclick = () => { window.location.href = 'game.html'; };
+                const replayBtn = document.createElement('button');
+                replayBtn.innerText = 'Replay Tutorial';
+                replayBtn.className = 'bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg ml-4';
+                replayBtn.onclick = () => { window.location.reload(); };
+                nextButton.parentElement.appendChild(replayBtn);
+            }
+        }
+    ];
+
+    function nextStep() {
+        tutorialStep++;
+        if (tutorialStep < tutorialSteps.length) {
+            const step = tutorialSteps[tutorialStep];
+            tutorialText.innerText = step.text;
+            step.setup();
+            nextButton.style.display = 'inline-block';
+        }
+    }
+
+    // --- Game Loop & Control ---
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        updateFleets();
+        updateCarriers();
+        generatePlanes();
+        [...bases, ...carriers].forEach(e => e.isCarrier ? drawCarrier(e) : drawBase(e));
+        fleets.forEach(drawFleet);
+        drawSelectionLine();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function init() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        tutorialSteps[0].setup();
+        tutorialText.innerText = tutorialSteps[0].text;
+        nextButton.addEventListener('click', nextStep);
+        gameLoop();
+    }
+
+    // --- Event Listeners ---
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        mouse = getMousePos(e);
+        selectedObject = null;
+        for (const entity of [...bases, ...carriers]) {
+            if (getDistance(mouse.x, mouse.y, entity.x, entity.y) < entity.radius && entity.owner === PLAYER) {
+                selectedObject = entity;
+                break;
+            }
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+        mouse = getMousePos(e);
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (!selectedObject) return;
+        const pos = getMousePos(e);
+        if (selectedObject.isCarrier) {
+            selectedObject.target = {x: pos.x, y: pos.y};
+            if (tutorialStep === 2) { // Player has moved the carrier
+                setTimeout(nextStep, 1000);
+            }
+        } else {
+            let targetObject = null;
+            for (const entity of bases) {
+                if (getDistance(pos.x, pos.y, entity.x, entity.y) < entity.radius) {
+                    targetObject = entity;
+                    break;
+                }
+            }
+            if (targetObject && targetObject !== selectedObject) {
+                launchFleet(selectedObject, targetObject);
+            }
+        }
+        isMouseDown = false;
+        selectedObject = null;
+    });
+
+    window.addEventListener('resize', init);
+
+    init();
+
+</script>
+
+</body>
+</html>
