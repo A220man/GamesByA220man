@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odakyu Memory Match</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sawarabi+Gothic&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sawarabi Gothic', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+        }
+        .card {
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            perspective: 1000px;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .matched {
+            border-color: #4ade80; /* Green border for matched cards */
+            box-shadow: 0 0 10px #4ade80;
+        }
+        .shake {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        /* Odakyu-inspired colors */
+        .odakyu-blue { background-color: #007AC0; }
+        .odakyu-orange { color: #f58220; }
+        
+        /* Styles for the locked collection items */
+        .collection-item.locked img {
+            filter: grayscale(100%) brightness(70%);
+            opacity: 0.8;
+        }
+        .collection-item.locked p {
+            color: #a0aec0; /* A muted gray */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Main Menu Screen -->
+    <div id="main-menu" class="text-center w-full max-w-md mx-auto">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Odakyu Memory Match</h1>
+        <p class="text-lg text-gray-500 mt-1 italic mb-6">From the maker of "Japan Subway Train Match"</p>
+        
+        <img src="https://www.rcrwireless.com/wp-content/uploads/2020/02/Odakyu-Line-Romancecar.png" alt="Odakyu Romancecar" class="rounded-lg shadow-lg mb-8 w-full">
+
+        <div class="space-y-4">
+            <button id="play-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 text-xl">Play Game</button>
+            <button id="collection-button" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 text-xl">View Collection</button>
+        </div>
+    </div>
+
+    <!-- Fleet Selection Screen -->
+    <div id="fleet-selection-screen" class="hidden text-center w-full max-w-md mx-auto">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">Choose a Fleet</h2>
+        <div class="space-y-4">
+            <button id="play-current-fleet" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 text-xl">Current Fleet</button>
+            <button id="play-former-fleet" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 text-xl">Former Fleet</button>
+            <button class="back-to-menu-btn mt-6 w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">Back to Menu</button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden w-full max-w-4xl">
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-lg w-full mb-4">
+            <div class="flex flex-wrap justify-between items-center text-center">
+                 <div class="w-1/3 sm:w-auto mb-2 sm:mb-0">
+                    <span class="font-bold text-lg text-gray-700">Moves: </span>
+                    <span id="moves-count" class="font-bold text-lg text-blue-600">0</span>
+                </div>
+                 <div class="w-1/3 sm:w-auto mb-2 sm:mb-0">
+                    <span class="font-bold text-lg text-gray-700">Time: </span>
+                    <span id="timer" class="font-bold text-lg text-blue-600">0s</span>
+                </div>
+                 <div class="w-1/3 sm:w-auto">
+                    <button class="back-to-menu-btn w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                        Menu
+                    </button>
+                </div>
+                <div class="w-full sm:w-auto mt-2 sm:mt-0">
+                    <button id="reset-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                        Reset Game
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="game-board" class="grid gap-3 sm:gap-4 w-full">
+            <!-- Cards will be generated by JavaScript -->
+        </div>
+    </div>
+    
+    <!-- Collection Screen -->
+    <div id="collection-screen" class="hidden w-full max-w-5xl">
+         <div class="flex flex-wrap justify-between items-center mb-6 gap-2">
+            <h2 class="text-3xl font-bold text-gray-800">Train Collection</h2>
+            <div>
+                 <button id="reset-collection-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 mr-2">
+                    Reset
+                </button>
+                <button class="back-to-menu-btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                    Back
+                </button>
+            </div>
+        </div>
+        <div id="collection-content" class="space-y-8">
+            <!-- Categorized collection will be generated here -->
+        </div>
+    </div>
+
+
+    <!-- Modal for winning message -->
+    <div id="win-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl text-center transform scale-95 transition-transform duration-300">
+            <h2 class="text-3xl font-bold text-yellow-500 mb-2">Congratulations!</h2>
+            <p class="text-gray-700 text-lg mb-4">You've matched all the Odakyu trains!</p>
+            <p id="win-stats" class="text-gray-600 mb-6"></p>
+            <button id="play-again-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg shadow-lg transition-transform transform hover:scale-105">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Screen elements
+            const mainMenu = document.getElementById('main-menu');
+            const gameScreen = document.getElementById('game-screen');
+            const collectionScreen = document.getElementById('collection-screen');
+            const fleetSelectionScreen = document.getElementById('fleet-selection-screen');
+            
+            // Button elements
+            const playButton = document.getElementById('play-button');
+            const collectionButton = document.getElementById('collection-button');
+            const playCurrentFleetButton = document.getElementById('play-current-fleet');
+            const playFormerFleetButton = document.getElementById('play-former-fleet');
+            const backToMenuButtons = document.querySelectorAll('.back-to-menu-btn');
+            const resetButton = document.getElementById('reset-button');
+            const playAgainButton = document.getElementById('play-again-button');
+            const resetCollectionButton = document.getElementById('reset-collection-btn');
+
+            // Game elements
+            const gameBoard = document.getElementById('game-board');
+            const movesCountSpan = document.getElementById('moves-count');
+            const timerSpan = document.getElementById('timer');
+            const winModal = document.getElementById('win-modal');
+            const winStats = document.getElementById('win-stats');
+            const collectionContent = document.getElementById('collection-content');
+
+            // --- Odakyu Train Data ---
+            const cardData = {
+                current: [
+                    { name: 'GSE (70000)', img: 'https://media-cdn.tripadvisor.com/media/photo-s/13/09/11/af/odakyu-s-newest-gse-romance.jpg' },
+                    { name: 'MSE (60000)', img: 'https://thumb.photo-ac.com/63/63e893acb526ab68c8c12c922969149e_t.jpeg' },
+                    { name: 'EXEα (30000)', img: 'https://i.redd.it/nbjwih1663ub1.jpg' },
+                    { name: '5000 Series', img: 'https://css.trainspo.com/uploads/photos/300_2x/15-107364v0_20200112.jpg' },
+                    { name: '4000 Series', img: 'https://preview.redd.it/odakyu-4000-series-passing-atsugi-station-outside-of-ebina-v0-27xn8e41djhf1.jpeg?auto=webp&s=5ffe76e21676b3930b83efe554c05fd14ddccaab' },
+                    { name: '3000 Series', img: 'https://live.staticflickr.com/1563/24340416662_7f1421fa03_b.jpg' },
+                    { name: '2000 Series', img: 'https://i.ytimg.com/vi/3CAhP6cs-ww/sddefault.jpg' },
+                    { name: '1000 Series', img: 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Odakyu_1000_series_at_Odawara_Station.jpg' },
+                    { name: '8000 Series', img: 'https://upload.wikimedia.org/wikipedia/commons/9/95/Odakyu_8000Seris_6Cars.jpg' },
+                ],
+                former: [
+                    // Romancecars
+                    { name: 'VSE (50000)', img: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjS0G_uo73wjKhZZ3fVjd5dSIgQpE52xwMqigNezBps3-0x1M537U8g8TqhGNvZ2hcjwbU3OWZFepJP9v1QSHyzxSSWuGVAwVq3_cresNnNdL0-mEuekzO5ajY8Ng6XeztkSFf_uIEOSpJl7Nk7f7qOQrw-9k8cdBWkrYf2y7hMcC9VNogsLMWdnPIg/s640/SpecialVSEOdakyu640a.jpg' },
+                    { name: 'LSE (7000)', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OER_RomanceCar_Super_Hakone_-LSE_old_color-_2.jpg/1280px-OER_RomanceCar_Super_Hakone_-LSE_old_color-_2.jpg' },
+                    { name: 'HiSE (10000)', img: 'https://upload.wikimedia.org/wikipedia/commons/1/15/OER_Romancecar_Enoshima_-HiSE-.JPG' },
+                    { name: 'RSE (20000)', img: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhy90VhWIgkXfSLZvSj7bNC7WxclwgnW6o5DwgT3CDfSdIrsHdcy4VZjUbxgajqQBl9c98umGBxzYDFLW9Vi4TLHCGEAUVkz-cqWdOWwlhyY9HSVLWFasdTuPosVq6KsLYZi6RQytzk3gw/' },
+                    { name: 'NSE (3100)', img: 'https://www.agui.net/oer/oer3100-110h-1380.jpg' },
+                    { name: 'SE (3000)', img: 'https://upload.wikimedia.org/wikipedia/commons/9/91/Model_3000_SE_of_Odakyu_Electric_Railway.JPG' },
+                    // Commuter Trains
+                    { name: '9000 Series', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Model_9000-Good_Bye-_of_Odakyu_Electric_Railway.JPG/1200px-Model_9000-Good_Bye-_of_Odakyu_Electric_Railway.JPG' },
+                    { name: '5000 Series (Original)', img: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Semi_Express_of_Odakyu_Electric_Railway.JPG' },
+                    { name: '2600 Series', img: 'https://thumb.photo-ac.com/74/7409759b8f3d7689f43f0a7cb42997fd_t.jpeg' },
+                    { name: '2400 Series', img: 'https://dist.joshinweb.jp/emall/img/sm/JSN_C00001/middle/49/68279/4968279119235.jpg?impolicy=tp300' },
+                    { name: '1800 Series', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Oer1800.JPG/1200px-Oer1800.JPG' },
+                ]
+            };
+            
+            let activeFleet = null; // To store the currently played fleet
+            let unlockedTrains = [];
+            const collectionKey = 'odakyuUnlockedCollection'; // Separate save key
+
+            let cards = [];
+            let flippedCards = [];
+            let matchedPairs = 0;
+            let moves = 0;
+            let lockBoard = false;
+            let timerInterval;
+            let seconds = 0;
+            
+            function loadCollection() {
+                const savedCollection = localStorage.getItem(collectionKey);
+                if (savedCollection) {
+                    unlockedTrains = JSON.parse(savedCollection);
+                }
+            }
+
+            function saveCollection() {
+                localStorage.setItem(collectionKey, JSON.stringify(unlockedTrains));
+            }
+
+            function showScreen(screenId) {
+                mainMenu.classList.add('hidden');
+                gameScreen.classList.add('hidden');
+                collectionScreen.classList.add('hidden');
+                fleetSelectionScreen.classList.add('hidden');
+                stopTimer();
+                document.getElementById(screenId).classList.remove('hidden');
+            }
+
+            playButton.addEventListener('click', () => {
+                showScreen('fleet-selection-screen');
+            });
+            
+            collectionButton.addEventListener('click', () => {
+                showScreen('collection-screen');
+                displayCollection();
+            });
+
+            playCurrentFleetButton.addEventListener('click', () => {
+                showScreen('game-screen');
+                startGame(cardData.current);
+            });
+
+            playFormerFleetButton.addEventListener('click', () => {
+                showScreen('game-screen');
+                startGame(cardData.former);
+            });
+
+            backToMenuButtons.forEach(button => {
+                button.addEventListener('click', () => showScreen('main-menu'));
+            });
+            
+            resetCollectionButton.addEventListener('click', () => {
+                unlockedTrains = [];
+                saveCollection();
+                displayCollection();
+            });
+
+            function displayCollection() {
+                collectionContent.innerHTML = ''; // Clear previous items
+
+                const createCategorySection = (title, trains) => {
+                    const section = document.createElement('div');
+                    
+                    const titleElement = document.createElement('h3');
+                    titleElement.className = 'text-2xl font-bold text-gray-700 mb-4 border-b-2 pb-2 border-gray-300';
+                    titleElement.textContent = title;
+                    section.appendChild(titleElement);
+
+                    const grid = document.createElement('div');
+                    grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4';
+                    
+                    trains.forEach(card => {
+                        const isUnlocked = unlockedTrains.includes(card.name);
+                        const item = document.createElement('div');
+                        item.className = `collection-item text-center ${isUnlocked ? 'unlocked' : 'locked'}`;
+                        
+                        const cardName = isUnlocked ? card.name : '???';
+                        const cardImage = isUnlocked ? card.img : 'https://placehold.co/200x200/e2e8f0/a0aec0?text=?';
+
+                        item.innerHTML = `
+                            <div class="bg-white p-2 rounded-lg shadow-md">
+                                <img src="${cardImage}" alt="${cardName}" class="w-full h-auto object-cover rounded-md mb-2" onerror="this.onerror=null;this.src='https://placehold.co/200x200/CCCCCC/FFFFFF?text=Error';">
+                                <p class="font-semibold text-gray-700 h-12 flex items-center justify-center">${cardName}</p>
+                            </div>
+                        `;
+                        grid.appendChild(item);
+                    });
+
+                    section.appendChild(grid);
+                    collectionContent.appendChild(section);
+                };
+                
+                createCategorySection('Current Fleet', cardData.current);
+                createCategorySection('Former Fleet', cardData.former);
+            }
+
+            function shuffle(array) {
+                array.sort(() => Math.random() - 0.5);
+            }
+
+            function startGame(fleet) {
+                activeFleet = fleet; // Store the selected fleet
+                matchedPairs = 0;
+                moves = 0;
+                seconds = 0;
+                movesCountSpan.textContent = '0';
+                timerSpan.textContent = '0s';
+                gameBoard.innerHTML = '';
+                lockBoard = false;
+                winModal.classList.add('hidden');
+                winModal.firstElementChild.classList.remove('scale-100');
+                
+                // Adjust game board grid based on fleet size
+                gameBoard.className = 'grid gap-3 sm:gap-4 w-full'; // Reset classes
+                if (activeFleet.length === 11) { // Former fleet (11 pairs = 22 cards)
+                    gameBoard.classList.add('grid-cols-6'); // 6x4 grid
+                } else if (activeFleet.length === 9) { // Current fleet (9 pairs = 18 cards)
+                    gameBoard.classList.add('grid-cols-6'); // 6x3 grid
+                } else { // Fallback for other counts
+                    gameBoard.classList.add('grid-cols-4');
+                }
+
+                cards = [...activeFleet, ...activeFleet];
+                shuffle(cards);
+                createBoard();
+                startTimer();
+            }
+
+            function startTimer() {
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    seconds++;
+                    timerSpan.textContent = `${seconds}s`;
+                }, 1000);
+            }
+
+            function stopTimer() {
+                 clearInterval(timerInterval);
+            }
+            
+            function createBoard() {
+                cards.forEach(card => {
+                    const cardElement = document.createElement('div');
+                    cardElement.classList.add('card', 'w-full', 'aspect-square', 'rounded-lg', 'cursor-pointer', 'shadow-md');
+                    cardElement.dataset.name = card.name;
+                    cardElement.innerHTML = `
+                        <div class="card-face card-front w-full h-full rounded-lg odakyu-blue flex items-center justify-center">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 256 256" fill="currentColor" class="text-white opacity-80"><path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96v96a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80Zm-80,68a12,12,0,1,1,12-12A12,12,0,0,1,128,148Zm-32-88a32,32,0,0,1,64,0V80H96Z"/></svg>
+                        </div>
+                        <div class="card-face card-back w-full h-full rounded-lg bg-white p-1">
+                            <img src="${card.img}" alt="${card.name}" class="w-full h-full object-cover rounded-md" onerror="this.onerror=null;this.src='https://placehold.co/200x200/CCCCCC/FFFFFF?text=Image+Error';">
+                        </div>
+                    `;
+                    cardElement.addEventListener('click', () => flipCard(cardElement));
+                    gameBoard.appendChild(cardElement);
+                });
+            }
+
+            function flipCard(cardElement) {
+                if (lockBoard || cardElement.classList.contains('flipped') || flippedCards.includes(cardElement)) return;
+                cardElement.classList.add('flipped');
+                flippedCards.push(cardElement);
+                if (flippedCards.length === 2) {
+                    lockBoard = true;
+                    incrementMoves();
+                    checkForMatch();
+                }
+            }
+
+            function incrementMoves() {
+                moves++;
+                movesCountSpan.textContent = moves;
+            }
+
+            function checkForMatch() {
+                const [card1, card2] = flippedCards;
+                const isMatch = card1.dataset.name === card2.dataset.name;
+                isMatch ? disableCards(card1, card2) : unflipCards(card1, card2);
+            }
+
+            function disableCards(card1, card2) {
+                card1.removeEventListener('click', flipCard);
+                card2.removeEventListener('click', flipCard);
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                
+                const trainName = card1.dataset.name;
+                if (!unlockedTrains.includes(trainName)) {
+                    unlockedTrains.push(trainName);
+                    saveCollection();
+                }
+
+                matchedPairs++;
+                resetTurn();
+                if (matchedPairs === activeFleet.length) {
+                    stopTimer();
+                    setTimeout(showWinModal, 500);
+                }
+            }
+
+            function unflipCards(card1, card2) {
+                card1.classList.add('shake');
+                card2.classList.add('shake');
+                setTimeout(() => {
+                    card1.classList.remove('flipped', 'shake');
+                    card2.classList.remove('flipped', 'shake');
+                    resetTurn();
+                }, 1000);
+            }
+
+            function resetTurn() {
+                flippedCards = [];
+                lockBoard = false;
+            }
+
+            function showWinModal() {
+                winStats.textContent = `You finished in ${moves} moves and ${seconds} seconds!`;
+                winModal.classList.remove('hidden');
+                setTimeout(() => winModal.firstElementChild.classList.add('scale-100'), 10);
+            }
+            
+            resetButton.addEventListener('click', () => {
+                if(activeFleet) startGame(activeFleet);
+            });
+
+            playAgainButton.addEventListener('click', () => {
+                winModal.classList.add('hidden');
+                if(activeFleet) startGame(activeFleet);
+            });
+
+            // Load the collection when the app starts
+            loadCollection();
+        });
+    </script>
+</body>
+</html>
+
+
+
