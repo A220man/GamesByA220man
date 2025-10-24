@@ -115,27 +115,27 @@
             const COLS = 8;
 
             const FACTIONS = {
-                uncf: { img: `https://static.wikia.nocookie.net/naval-1945/images/9/9d/UNCF.webp/revision/latest/scale-to-width-down/300?cb=20230705061758` },
-                gamilas: { img: `https://static.wikia.nocookie.net/yamato/images/6/6c/Great_Garmillas_Empire_emblem.png/revision/latest/scale-to-width-down/300?cb=20241201170506` },
-                gatlantis: { img: `https://static.wikia.nocookie.net/yamato/images/e/e3/Gatlantis_Seal_bg_removed_.png/revision/latest/scale-to-width-down/1200?cb=20241208201913` },
-                bolar: { img: `https://static.wikia.nocookie.net/yamato/images/1/1d/Bolar_logo.png/revision/latest/scale-to-width-down/1000?cb=20250802224618` },
-                darkNebula: { img: `https://static.wikia.nocookie.net/yamato/images/4/4f/Dezariam_logo_2.png/revision/latest?cb=20250502213537` },
-                urup: { img: `https://static.wikia.nocookie.net/project-stardust/images/4/49/GUIA.png/revision/latest?cb=20230505085239` },
+                uncf: { img: `https://static.wikitide.net/projectstardustwikiwiki/thumb/2/2d/UNCF.png/1200px-UNCF.png` },
+                gamilas: { img: `https://static.wikitide.net/projectstardustwikiwiki/thumb/8/8a/Garmillas.png/1024px-Garmillas.png` },
+                gatlantis: { img: `https://static.wikitide.net/projectstardustwikiwiki/thumb/3/3c/Gatlantis.png/800px-Gatlantis.png` },
+                bolar: { img: `https://static.wikitide.net/projectstardustwikiwiki/d/dc/Bolar.png` },
+                darkNebula: { img: `https://static.wikitide.net/projectstardustwikiwiki/d/d1/Dezarium.png` },
+                urup: { img: `https://static.wikitide.net/projectstardustwikiwiki/thumb/4/49/GUIA.png/1024px-GUIA.png` },
             };
             const factionKeys = Object.keys(FACTIONS);
 
             const SHIPS = [
-                { matches: 5, name: 'Murasame', class: 'UNCF Cruiser', img: 'https://static.wikia.nocookie.net/yamato/images/a/aa/Murasamesinks.jpg/revision/latest?cb=20220815064318' },
-                { matches: 7, name: 'Kelkapia', class: 'Gamilas Cruiser', img: 'https://static.wikia.nocookie.net/yamato/images/b/bc/Kelkapia_noble_blue.jpeg/revision/latest/scale-to-width-down/250?cb=20231103140459' },
-                { matches: 10, name: 'Kukulkan', class: 'Gatlantis Combat Ship', img: 'https://static.wikia.nocookie.net/yamato/images/b/bd/Kukulkan.png/revision/latest?cb=20211004222608' },
-                { matches: 15, name: 'Kongo', class: 'UNCF Battleship', img: 'https://static.wikia.nocookie.net/yamato/images/9/9d/Kirishima-0.jpg/revision/latest?cb=20150908225556' },
-                { matches: 18, name: 'Gaiderol', class: 'Gamilas Battleship', img: 'https://static.wikia.nocookie.net/yamato/images/f/fb/Gaiderol-class_Battleship.png/revision/latest?cb=20140617124702' },
-                { matches: 20, name: 'Meltoria', class: 'Gamilas Battle Cruiser', img: 'https://static.wikia.nocookie.net/yamato/images/3/3b/EX-178.png/revision/latest?cb=20140910013833' },
-                { matches: 25, name: 'Andromeda', class: 'UNCF Dreadnought', img: 'https://static.wikia.nocookie.net/yamato/images/e/e6/Andromeda.png/revision/latest?cb=20171020220913' },
-                { matches: 28, name: 'Zoelguut', class: 'Gamilas Super Dreadnought', img: 'https://static.wikia.nocookie.net/yamato/images/6/63/Zoelguut_II.jpg/revision/latest/thumbnail/width/360/height/360?cb=20230401045333' },
-                { matches: 30, name: 'Apocalix', class: 'Gatlantis Astro Carrier', img: 'https://static.wikia.nocookie.net/yamato/images/b/b0/Seventh_Mobile_Fleet.jpeg/revision/latest?cb=20230823092145' },
-                { matches: 32, name: 'Neu Deusura', class: 'Gamilas Command Ship', img: 'https://static.wikia.nocookie.net/yamato/images/0/01/Neu_Deusura_charges.jpeg/revision/latest/scale-to-width-down/250?cb=20230918202425' },
-                { matches: 35, name: 'Yamato', class: 'Space battleship', img: 'https://static.wikia.nocookie.net/yamato/images/0/02/Yamato_destroys_missile.jpg/revision/latest?cb=20230317201113' },
+                { matches: 5, name: 'Murasame', class: 'UNCF Cruiser', img: 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/3a220e49-b640-4b89-95ad-221f76675213/dd4kpia-77e1606e-f67b-4816-9d05-eab54a82cd63.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiIvZi8zYTIyMGU0OS1iNjQwLTRiODktOTVhZC0yMjFmNzY2NzUyMTMvZGQ0a3BpYS03N2UxNjA2ZS1mNjdiLTQ4MTYtOWQwNS1lYWI1NGE4MmNkNjMucG5nIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.elM27twb48R2HzTnCf2Mb5SVnmw-ZH05JK0sBFjshUk' },
+                { matches: 7, name: 'Kelkapia', class: 'Gamilas Cruiser', img: 'https://ourstarblazers.com/vault-images/feb13/74514.JPG' },
+                { matches: 10, name: 'Kukulkan', class: 'Gatlantis Combat Ship', img: 'https://www.ourstarblazers.com/vault-images/dec14/arkmecha10.JPG' },
+                { matches: 15, name: 'Kongo', class: 'UNCF Battleship', img: 'https://i.pinimg.com/736x/67/7e/c9/677ec9a9b8a812e5f0ebb0b6aba8ff0a.jpg' },
+                { matches: 18, name: 'Gaiderol', class: 'Gamilas Battleship', img: 'https://cdn-live.warthunder.com/uploads/dc/18db6ee08525e8711e6193c079730c686ac300_mq/gamirasu_sn011.jpg' },
+                { matches: 20, name: 'Meltoria', class: 'Gamilas Battle Cruiser', img: 'https://static.wikitide.net/projectstardustwikiwiki/thumb/6/67/Meltoria.png/1920px-Meltoria.png' },
+                { matches: 25, name: 'Andromeda', class: 'UNCF Dreadnought', img: 'https://starblazers-yamato.net/3199/mechanic/img/alpheratz.png' },
+                { matches: 28, name: 'Zoelguut', class: 'Gamilas Super Dreadnought', img: 'https://pm1.aminoapps.com/7025/0edb382ae3d4eb8ffefd0b1f3ca4e93717d8614cr1-250-135v2_00.jpg' },
+                { matches: 30, name: 'Apocalix', class: 'Gatlantis Astro Carrier', img: 'https://i.namu.wiki/i/CAaGTfKtV-Wx-ElsbzJZljg_JCKqq1r71wFs6TTDOhn5AcjrNX6XG7Ue2-Ffo-iM8v5TsrgWKJ56pWfzQY_1pg.webp' },
+                { matches: 32, name: 'Neu Deusura', class: 'Gamilas Command Ship', img: 'https://yamato2202.net/character_mechanic/img/mecha/img_mecha_2_2.png' },
+                { matches: 35, name: 'Yamato', class: 'Space battleship', img: 'https://starblazers-yamato.net/3199/mechanic/img/yamato.png' },
             ];
             
             let board = [];
